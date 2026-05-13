@@ -1,0 +1,13 @@
+{
+  "name": "world-cup-2026-prediction-contest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A self-hosted prediction contest app for the FIFA World Cup 2026.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
