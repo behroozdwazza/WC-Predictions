@@ -43,6 +43,9 @@ const timezones = [
   "Australia/Sydney"
 ];
 
+const trophyImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/FIFA%20World%20Cup%20Trophy%20%28Ank%20Kumar%2C%20Infosys%20Limited%29%2002.jpg?width=160";
+const logoImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/2026%20FIFA%20World%20Cup%20emblem%20%28with%20wordmark%29.svg?width=220";
+
 const flags = {
   Algeria: "dz",
   Argentina: "ar",
@@ -194,11 +197,20 @@ function teamLabel(team) {
   return `<span class="team-name">${flag}<span>${escapeHtml(team)}</span></span>`;
 }
 
+function brandImages() {
+  return `
+    <div class="brand-media" aria-label="FIFA World Cup 2026">
+      <img class="brand-trophy" src="${trophyImage}" alt="World Cup trophy" loading="lazy">
+      <img class="brand-logo" src="${logoImage}" alt="FIFA World Cup 2026 logo" loading="lazy">
+    </div>
+  `;
+}
+
 function renderLogin() {
   const isSignup = state.authMode === "signup";
   app.innerHTML = `
     <main class="login">
-      <div class="mark">26</div>
+      ${brandImages()}
       <h1>World Cup prediction contest</h1>
       <p>${isSignup ? "Create your player account once, then sign in each day to update predictions." : "Sign in with your player account. Admin credentials open the admin area."}</p>
       <div class="auth-tabs">
@@ -250,7 +262,7 @@ function render() {
     <main class="shell">
       <header class="topbar">
         <div class="brand">
-          <div class="mark">26</div>
+          ${brandImages()}
           <div>
             <h1>World Cup 2026 Predictions</h1>
             <p>${state.data.matches.length} matches - ${state.data.players.length} players</p>

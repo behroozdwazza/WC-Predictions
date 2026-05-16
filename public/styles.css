@@ -104,15 +104,28 @@ label {
   min-width: 0;
 }
 
-.mark {
-  display: grid;
-  place-items: center;
+.brand-media {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+
+.brand-trophy {
   width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: var(--green);
-  color: white;
-  font-weight: 800;
+  height: 46px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 5px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.brand-logo {
+  width: 86px;
+  height: 42px;
+  object-fit: contain;
+  display: block;
 }
 
 .brand h1 {
@@ -174,6 +187,20 @@ label {
   border: 1px solid var(--line);
   border-radius: 8px;
   box-shadow: var(--shadow);
+}
+
+.login .brand-media {
+  margin-bottom: 14px;
+}
+
+.login .brand-trophy {
+  width: 54px;
+  height: 66px;
+}
+
+.login .brand-logo {
+  width: 150px;
+  height: 68px;
 }
 
 .panel {
