@@ -13,12 +13,12 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "worldcup-admin";
 
 const STAGE_POINTS = {
-  round32: { exact: 15, diff: 11, winner: 7, wrongLive: 3, penExact: 15, penDrawWinner: 11, penExactWrongWinner: 9, penDrawWrongWinner: 6, liveWinner: 3 },
-  round16: { exact: 15, diff: 11, winner: 7, wrongLive: 3, penExact: 15, penDrawWinner: 11, penExactWrongWinner: 9, penDrawWrongWinner: 6, liveWinner: 3 },
-  quarter: { exact: 20, diff: 15, winner: 10, wrongLive: 5, penExact: 20, penDrawWinner: 15, penExactWrongWinner: 12, penDrawWrongWinner: 8, liveWinner: 4 },
-  semi: { exact: 25, diff: 19, winner: 13, wrongLive: 7, penExact: 25, penDrawWinner: 19, penExactWrongWinner: 15, penDrawWrongWinner: 10, liveWinner: 5 },
-  third: { exact: 25, diff: 19, winner: 13, wrongLive: 7, penExact: 25, penDrawWinner: 19, penExactWrongWinner: 15, penDrawWrongWinner: 10, liveWinner: 5 },
-  final: { exact: 30, diff: 23, winner: 16, wrongLive: 9, penExact: 30, penDrawWinner: 23, penExactWrongWinner: 18, penDrawWrongWinner: 12, liveWinner: 6 }
+  round32: { exact: 15, diff: 11, winner: 7, penWinnerWhenActualInPlay: 3, penExact: 15, penDrawWinner: 9, penExactWrongWinner: 11, penDrawWrongWinner: 6, liveWinner: 3 },
+  round16: { exact: 20, diff: 15, winner: 10, penWinnerWhenActualInPlay: 5, penExact: 19.5, penDrawWinner: 11.7, penExactWrongWinner: 15, penDrawWrongWinner: 7.8, liveWinner: 3.9 },
+  quarter: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25.35, penDrawWinner: 15.21, penExactWrongWinner: 19, penDrawWrongWinner: 10.14, liveWinner: 5.07 },
+  third: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25.35, penDrawWinner: 15.21, penExactWrongWinner: 19, penDrawWrongWinner: 10.14, liveWinner: 5.07 },
+  semi: { exact: 30, diff: 23, winner: 16, penWinnerWhenActualInPlay: 9, penExact: 30, penDrawWinner: 18, penExactWrongWinner: 23, penDrawWrongWinner: 12, liveWinner: 6 },
+  final: { exact: 35, diff: 27, winner: 19, penWinnerWhenActualInPlay: 11, penExact: 35, penDrawWinner: 21, penExactWrongWinner: 27, penDrawWrongWinner: 14, liveWinner: 7 }
 };
 
 const MIME = {
@@ -119,7 +119,7 @@ function publicState(db) {
     const safe = safePlayer(player);
     return {
       ...safe,
-      points: rows.reduce((sum, row) => sum + row.points, 0),
+      points: roundPoints(rows.reduce((sum, row) => sum + row.points, 0)),
       exacts: rows.filter(row => row.points >= 10 && row.prediction).length,
       predicted: rows.filter(row => row.prediction).length
     };
@@ -130,9 +130,13 @@ function publicState(db) {
     matches: db.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
     predictions: Object.fromEntries(latest),
     standings,
-    rules: { group: "10 exact, 7 outcome and goal difference, 4 winner only, 0 wrong shape, -2 missing.", knockout: "Points scale by stage and whether the winner is decided in play or penalties." },
+    rules: { group: "10 exact, 7 outcome and goal difference, 4 winner only, 0 wrong shape or missing.", knockout: "Points scale by stage and whether the winner is decided in play or penalties." },
     settings: { ...db.settings }
   };
+}
+
+function roundPoints(value) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function latestPredictions(predictions) {
@@ -170,7 +174,7 @@ function isFinished(match) {
 
 function scorePrediction(match, prediction) {
   if (!isFinished(match)) return 0;
-  if (!prediction) return match.stage === "group" ? -2 : 0;
+  if (!prediction) return 0;
   if (match.stage === "group") return scoreGroup(match, prediction);
   return scoreKnockout(match, prediction);
 }
@@ -207,9 +211,9 @@ function scoreKnockout(match, prediction) {
 
   if (exactScore) return table.exact;
   if (actualOutcome === predictedOutcome && sameDiff) return table.diff;
+  if (predictedOutcome === "draw" && predictedWinner === actualWinner) return table.penWinnerWhenActualInPlay;
   if (actualWinner === predictedWinner) return table.winner;
-  if (predictedOutcome === "draw" || actualOutcome === "draw") return 0;
-  return table.wrongLive;
+  return 0;
 }
 
 function usernameKey(username) {
@@ -374,6 +378,17 @@ async function handleApi(req, res, pathname) {
     const index = db.matches.findIndex(item => item.id === match.id);
     if (index >= 0) db.matches[index] = { ...db.matches[index], ...match };
     else db.matches.push(match);
+    await saveDb(db);
+    return json(res, 200, publicState(db));
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/matches/delete") {
+    if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
+    const body = await readBody(req);
+    const match = db.matches.find(item => item.id === body.matchId);
+    if (!match) return json(res, 404, { error: "Match was not found." });
+    db.matches = db.matches.filter(item => item.id !== match.id);
+    db.predictions = db.predictions.filter(item => item.matchId !== match.id);
     await saveDb(db);
     return json(res, 200, publicState(db));
   }
