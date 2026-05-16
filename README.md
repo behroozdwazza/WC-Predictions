@@ -29,6 +29,18 @@ npm start
 
 Admins can add fixtures, import a JSON fixture list, enter final scores, and edit or delete player accounts. Rankings update as soon as an admin saves a final score.
 
+## OpenAI fun facts
+
+Set an OpenAI API key to let the admin generate playful match-day recaps:
+
+```powershell
+$env:OPENAI_API_KEY="your-openai-api-key"
+$env:OPENAI_MODEL="gpt-5.1"
+npm start
+```
+
+After entering final scores for a match day, sign in as admin and use **Generate Fun Facts**. The generated recap is saved and shown to all users.
+
 ## Scoring
 
 Group stage:

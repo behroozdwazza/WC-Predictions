@@ -11,6 +11,8 @@ const DB_FILE = path.join(DATA_DIR, "db.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "worldcup-admin";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.1";
 
 const STAGE_POINTS = {
   round32: { exact: 15, diff: 11, winner: 7, penWinnerWhenActualInPlay: 3, penExact: 15, penDrawWinner: 9, penExactWrongWinner: 11, penDrawWrongWinner: 6, liveWinner: 3 },
@@ -43,6 +45,7 @@ async function loadDb() {
       matches: seedMatches,
       predictions: [],
       sessions: [],
+      reports: [],
       settings: {}
     });
     await saveDb(db);
@@ -58,6 +61,7 @@ function normalizeDb(db) {
     matches,
     predictions: Array.isArray(db.predictions) ? db.predictions : [],
     sessions: Array.isArray(db.sessions) ? db.sessions : [],
+    reports: Array.isArray(db.reports) ? db.reports : [],
     settings: db.settings || {}
   };
 }
@@ -107,8 +111,23 @@ function safePlayer(player) {
 
 function publicState(db) {
   const latest = latestPredictions(db.predictions);
-  const standings = db.players.map(player => {
-    const rows = db.matches.map(match => {
+  const standings = calculateStandings(db, db.matches);
+
+  return {
+    players: db.players.map(safePlayer),
+    matches: db.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
+    predictions: Object.fromEntries(latest),
+    reports: db.reports.sort((a, b) => b.date.localeCompare(a.date) || new Date(b.createdAt) - new Date(a.createdAt)),
+    standings,
+    rules: { group: "10 exact, 7 outcome and goal difference, 4 winner only, 0 wrong shape or missing.", knockout: "Points scale by stage and whether the winner is decided in play or penalties." },
+    settings: { ...db.settings }
+  };
+}
+
+function calculateStandings(db, matches) {
+  const latest = latestPredictions(db.predictions);
+  return db.players.map(player => {
+    const rows = matches.map(match => {
       const prediction = latest.get(`${player.id}:${match.id}`) || null;
       return {
         matchId: match.id,
@@ -124,15 +143,6 @@ function publicState(db) {
       predicted: rows.filter(row => row.prediction).length
     };
   }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
-
-  return {
-    players: db.players.map(safePlayer),
-    matches: db.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
-    predictions: Object.fromEntries(latest),
-    standings,
-    rules: { group: "10 exact, 7 outcome and goal difference, 4 winner only, 0 wrong shape or missing.", knockout: "Points scale by stage and whether the winner is decided in play or penalties." },
-    settings: { ...db.settings }
-  };
 }
 
 function roundPoints(value) {
@@ -279,6 +289,183 @@ function normalizeStatus(status) {
   return "scheduled";
 }
 
+function reportDateKey(value) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function rankMap(standings) {
+  return new Map(standings.map((player, index) => [player.id, index + 1]));
+}
+
+function resultWinner(match) {
+  return winnerFromMatch(match);
+}
+
+function predictionWinner(prediction) {
+  return winnerFromPrediction(prediction);
+}
+
+function exactPrediction(match, prediction) {
+  return prediction && match.homeScore === prediction.homeScore && match.awayScore === prediction.awayScore;
+}
+
+function buildFunFactsContext(db, date) {
+  const dayMatches = db.matches
+    .filter(match => reportDateKey(match.kickoff) === date && isFinished(match))
+    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
+  if (!dayMatches.length) throw new Error("No finished matches found for that day.");
+
+  const beforeMatches = db.matches.filter(match => isFinished(match) && reportDateKey(match.kickoff) < date);
+  const afterMatches = db.matches.filter(match => isFinished(match) && reportDateKey(match.kickoff) <= date);
+  const before = calculateStandings(db, beforeMatches);
+  const after = calculateStandings(db, afterMatches);
+  const beforeRanks = rankMap(before);
+  const afterRanks = rankMap(after);
+  const latest = latestPredictions(db.predictions);
+
+  const playerSummaries = db.players.map(player => {
+    const safe = safePlayer(player);
+    const beforeStanding = before.find(item => item.id === player.id);
+    const afterStanding = after.find(item => item.id === player.id);
+    const predictions = dayMatches.map(match => {
+      const prediction = latest.get(`${player.id}:${match.id}`) || null;
+      const points = scorePrediction(match, prediction);
+      return { match, prediction, points };
+    });
+    return {
+      id: player.id,
+      name: safe.name,
+      beforeRank: beforeRanks.get(player.id) || null,
+      afterRank: afterRanks.get(player.id) || null,
+      rankChange: (beforeRanks.get(player.id) || db.players.length + 1) - (afterRanks.get(player.id) || db.players.length + 1),
+      beforePoints: beforeStanding?.points || 0,
+      afterPoints: afterStanding?.points || 0,
+      dayPoints: roundPoints((afterStanding?.points || 0) - (beforeStanding?.points || 0)),
+      submitted: predictions.filter(item => item.prediction).length,
+      exact: predictions.filter(item => exactPrediction(item.match, item.prediction)).length,
+      positive: predictions.filter(item => item.points > 0).length,
+      zero: predictions.filter(item => item.prediction && item.points === 0).length,
+      missing: predictions.filter(item => !item.prediction).length
+    };
+  });
+
+  const oddPredictions = [];
+  for (const match of dayMatches) {
+    const predictions = db.players.map(player => {
+      const prediction = latest.get(`${player.id}:${match.id}`) || null;
+      if (!prediction) return null;
+      return { player, prediction, winner: predictionWinner(prediction), points: scorePrediction(match, prediction) };
+    }).filter(Boolean);
+    const counts = predictions.reduce((map, item) => {
+      map[item.winner] = (map[item.winner] || 0) + 1;
+      return map;
+    }, {});
+    for (const item of predictions) {
+      const totalGoals = item.prediction.homeScore + item.prediction.awayScore;
+      const uncommonWinner = counts[item.winner] <= Math.max(1, Math.floor(predictions.length * 0.25));
+      if (item.points > 0 && (totalGoals >= 6 || uncommonWinner)) {
+        oddPredictions.push({
+          player: safePlayer(item.player).name,
+          match: `${match.home} vs ${match.away}`,
+          prediction: `${item.prediction.homeScore}-${item.prediction.awayScore}${item.prediction.penaltyWinner ? `, ${item.prediction.penaltyWinner} on penalties` : ""}`,
+          result: `${match.homeScore}-${match.awayScore}${match.penaltyWinner ? `, ${match.penaltyWinner} on penalties` : ""}`,
+          points: item.points,
+          why: totalGoals >= 6 ? "high-goal prediction" : "uncommon winner among pool predictions"
+        });
+      }
+    }
+  }
+
+  const completedDates = [...new Set(db.matches.filter(isFinished).map(match => reportDateKey(match.kickoff)))].sort();
+  const rankHistory = completedDates.map(day => {
+    const matchesToDay = db.matches.filter(match => isFinished(match) && reportDateKey(match.kickoff) <= day);
+    return { day, standings: calculateStandings(db, matchesToDay).map((player, index) => ({ id: player.id, name: player.name, rank: index + 1, points: player.points })) };
+  });
+
+  return {
+    date,
+    matches: dayMatches.map(match => ({
+      id: match.id,
+      number: match.number,
+      stage: match.stage,
+      fixture: `${match.home} vs ${match.away}`,
+      result: `${match.homeScore}-${match.awayScore}${match.penaltyWinner ? `, ${match.penaltyWinner} on penalties` : ""}`,
+      winner: resultWinner(match)
+    })),
+    beforeStandings: before.map((player, index) => ({ rank: index + 1, name: player.name, points: player.points })),
+    afterStandings: after.map((player, index) => ({ rank: index + 1, name: player.name, points: player.points })),
+    playerSummaries,
+    biggestJump: playerSummaries.filter(item => item.rankChange > 0).sort((a, b) => b.rankChange - a.rankChange || b.dayPoints - a.dayPoints).slice(0, 5),
+    biggestDrop: playerSummaries.filter(item => item.rankChange < 0).sort((a, b) => a.rankChange - b.rankChange || a.dayPoints - b.dayPoints).slice(0, 5),
+    perfectOrRoughDays: playerSummaries.filter(item => item.submitted > 0 && (item.exact === dayMatches.length || item.positive === 0)),
+    oddPredictions: oddPredictions.slice(0, 10),
+    rankHistory
+  };
+}
+
+function extractResponseText(payload) {
+  if (payload.output_text) return payload.output_text;
+  const chunks = [];
+  for (const item of payload.output || []) {
+    for (const content of item.content || []) {
+      if (content.text) chunks.push(content.text);
+    }
+  }
+  return chunks.join("\n").trim();
+}
+
+async function generateFunFactsReport(db, date) {
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured on the server.");
+  const context = buildFunFactsContext(db, date);
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      instructions: "You write playful but kind FIFA World Cup prediction-pool recaps. Use only the supplied data. Do not invent statistics, matches, or predictions. Celebrate good calls without insulting players. Return concise bilingual JSON.",
+      input: `Create fun facts for this match day. Mention ranking jumps/drops, perfect or rough prediction days, consistent movement toward the top if supported by rankHistory, and odd-but-correct predictions when present. Keep each language to 4-7 short bullets. Data:\n${JSON.stringify(context)}`,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "match_day_fun_facts",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              title_en: { type: "string" },
+              title_fa: { type: "string" },
+              bullets_en: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 8 },
+              bullets_fa: { type: "array", items: { type: "string" }, minItems: 3, maxItems: 8 }
+            },
+            required: ["title_en", "title_fa", "bullets_en", "bullets_fa"]
+          }
+        }
+      }
+    })
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenAI request failed: ${response.status} ${errorText.slice(0, 300)}`);
+  }
+  const payload = await response.json();
+  const text = extractResponseText(payload);
+  const generated = JSON.parse(text);
+  return {
+    id: id("report"),
+    date,
+    titleEn: generated.title_en,
+    titleFa: generated.title_fa,
+    bulletsEn: generated.bullets_en,
+    bulletsFa: generated.bullets_fa,
+    createdAt: new Date().toISOString(),
+    model: OPENAI_MODEL
+  };
+}
+
 async function handleApi(req, res, pathname) {
   const db = await loadDb();
 
@@ -391,6 +578,22 @@ async function handleApi(req, res, pathname) {
     db.predictions = db.predictions.filter(item => item.matchId !== match.id);
     await saveDb(db);
     return json(res, 200, publicState(db));
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/fun-facts") {
+    if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
+    const body = await readBody(req);
+    const date = String(body.date || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: "Choose a match day." });
+    try {
+      const report = await generateFunFactsReport(db, date);
+      db.reports = db.reports.filter(item => item.date !== date);
+      db.reports.push(report);
+      await saveDb(db);
+      return json(res, 200, publicState(db));
+    } catch (error) {
+      return json(res, 502, { error: error.message });
+    }
   }
 
   if (req.method === "POST" && pathname === "/api/admin/results") {
