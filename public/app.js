@@ -54,7 +54,7 @@ const translations = {
     noPlayers: "No players yet.",
     predictionCount: "predictions",
     scoring: "Scoring",
-    groupSummary: "Exact score: 10 - correct outcome and goal difference: 7 - correct winner only: 4 - wrong shape: 0 - missing prediction after full time: -2.",
+    groupSummary: "Exact score: 10 - correct outcome and goal difference: 7 - correct winner only: 4 - wrong shape or missing prediction: 0.",
     knockoutSummary: "Points rise by round. Predict the 120-minute score; if you predict a draw, choose who wins penalties.",
     timingSummary: "You can update a prediction until kickoff. The newest saved prediction is the one that counts.",
     groupStage: "Group stage",
@@ -67,15 +67,18 @@ const translations = {
     diffRule: "Exact score is wrong, but the winner/draw and goal difference are correct.",
     winnerOnlyRule: "Only the match winner is predicted correctly.",
     wrongOutcomeRule: "The predicted outcome is different from the real outcome.",
-    noPredictionRule: "No prediction was submitted before kickoff.",
+    noPredictionRule: "No prediction was submitted before kickoff, or the prediction contradicts the real result.",
     knockoutPlayTitle: "Knockout Stage - Winner Decided During Play",
     knockoutPlayNote: "This applies when the winner is decided before penalties, including extra time.",
     round3216: "Round of 32 / 16",
+    round32Only: "Round of 32",
+    round16Only: "Round of 16",
     quarterFinal: "Quarter-final",
     semiThird: "Semi-final / Third place",
     final: "Final",
     winnerDiffRule: "Winner and goal difference are correct.",
     winnerWrongNoDrawRule: "Winner prediction is wrong, but the prediction was not a draw.",
+    penWinnerWhenActualInPlayRule: "Winner is predicted correctly, but as the penalty winner.",
     wrongDrawShapeRule: "Wrong winner with a draw/no prediction shape.",
     knockoutPensTitle: "Knockout Stage - Winner Decided By Penalties",
     knockoutPensNote: "Predict the score after 120 minutes. If you predict a draw, choose the penalty winner.",
@@ -116,6 +119,7 @@ const translations = {
     clear: "Clear",
     deleteUserConfirm: "Delete {name} and all their predictions?",
     clearScoreConfirm: "Clear this score and remove its points from the ranking?",
+    deleteMatchConfirm: "Delete this match and all predictions submitted for it?",
     stage_group: "Group",
     stage_round32: "Round of 32",
     stage_round16: "Round of 16",
@@ -166,7 +170,7 @@ const translations = {
     noPlayers: "هنوز بازیکنی وجود ندارد.",
     predictionCount: "پیش‌بینی",
     scoring: "امتیازدهی",
-    groupSummary: "نتیجه دقیق: ۱۰ - نتیجه و اختلاف گل درست: ۷ - فقط برنده درست: ۴ - حالت اشتباه: ۰ - عدم پیش‌بینی پس از پایان بازی: منفی ۲.",
+    groupSummary: "نتیجه دقیق: ۱۰ - نتیجه و اختلاف گل درست: ۷ - فقط برنده درست: ۴ - حالت اشتباه یا عدم پیش‌بینی: ۰.",
     knockoutSummary: "امتیازها با توجه به مرحله بیشتر می‌شوند. نتیجه پس از ۱۲۰ دقیقه را پیش‌بینی کنید؛ اگر مساوی پیش‌بینی می‌کنید، برنده پنالتی را هم انتخاب کنید.",
     timingSummary: "تا قبل از شروع بازی می‌توانید پیش‌بینی را تغییر دهید. آخرین پیش‌بینی ذخیره‌شده محاسبه می‌شود.",
     groupStage: "مرحله گروهی",
@@ -179,15 +183,18 @@ const translations = {
     diffRule: "نتیجه دقیق اشتباه باشد، اما برنده/مساوی و اختلاف گل درست باشد.",
     winnerOnlyRule: "فقط برنده بازی درست پیش‌بینی شود.",
     wrongOutcomeRule: "حالت پیش‌بینی‌شده با نتیجه واقعی متفاوت باشد.",
-    noPredictionRule: "قبل از شروع بازی پیش‌بینی ثبت نشده باشد.",
+    noPredictionRule: "قبل از شروع بازی پیش‌بینی ثبت نشده باشد، یا پیش‌بینی خلاف نتیجه واقعی باشد.",
     knockoutPlayTitle: "مرحله حذفی - برنده در جریان بازی مشخص شود",
     knockoutPlayNote: "این حالت زمانی است که برنده قبل از ضربات پنالتی، از جمله در وقت اضافه، مشخص شود.",
     round3216: "یک‌سی‌ودوم / یک‌هشتم نهایی",
+    round32Only: "یک‌سی‌ودوم نهایی",
+    round16Only: "یک‌هشتم نهایی",
     quarterFinal: "یک‌چهارم نهایی",
     semiThird: "نیمه‌نهایی / رده‌بندی",
     final: "فینال",
     winnerDiffRule: "برنده و اختلاف گل درست باشد.",
     winnerWrongNoDrawRule: "برنده اشتباه باشد، اما پیش‌بینی مساوی نبوده باشد.",
+    penWinnerWhenActualInPlayRule: "برنده درست پیش‌بینی شود، اما به عنوان برنده ضربات پنالتی.",
     wrongDrawShapeRule: "برنده اشتباه با حالت مساوی یا عدم پیش‌بینی.",
     knockoutPensTitle: "مرحله حذفی - برنده در ضربات پنالتی مشخص شود",
     knockoutPensNote: "نتیجه پس از ۱۲۰ دقیقه را پیش‌بینی کنید. اگر مساوی پیش‌بینی می‌کنید، برنده پنالتی را انتخاب کنید.",
@@ -228,6 +235,7 @@ const translations = {
     clear: "پاک کردن",
     deleteUserConfirm: "آیا {name} و همه پیش‌بینی‌هایش حذف شود؟",
     clearScoreConfirm: "این نتیجه پاک شود و امتیازهای مربوط به آن از جدول حذف شود؟",
+    deleteMatchConfirm: "این بازی و همه پیش‌بینی‌های ثبت‌شده برای آن حذف شود؟",
     stage_group: "گروهی",
     stage_round32: "یک‌سی‌ودوم نهایی",
     stage_round16: "یک‌هشتم نهایی",
@@ -678,7 +686,7 @@ function renderRulesPage() {
           <tr><td>${t("diffRule")}</td><td>7</td></tr>
           <tr><td>${t("winnerOnlyRule")}</td><td>4</td></tr>
           <tr><td>${t("wrongOutcomeRule")}</td><td>0</td></tr>
-          <tr><td>${t("noPredictionRule")}</td><td>-2</td></tr>
+          <tr><td>${t("noPredictionRule")}</td><td>0</td></tr>
         </tbody>
       </table>
     </section>
@@ -690,18 +698,19 @@ function renderRulesPage() {
         <thead>
           <tr>
             <th>${t("predictionResult")}</th>
-            <th>${t("round3216")}</th>
+            <th>${t("round32Only")}</th>
+            <th>${t("round16Only")}</th>
             <th>${t("quarterFinal")}</th>
             <th>${t("semiThird")}</th>
             <th>${t("final")}</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>${t("exactScoreRule")}</td><td>15</td><td>20</td><td>25</td><td>30</td></tr>
-          <tr><td>${t("winnerDiffRule")}</td><td>11</td><td>15</td><td>19</td><td>23</td></tr>
-          <tr><td>${t("winnerOnlyRule")}</td><td>7</td><td>10</td><td>13</td><td>16</td></tr>
-          <tr><td>${t("winnerWrongNoDrawRule")}</td><td>3</td><td>5</td><td>7</td><td>9</td></tr>
-          <tr><td>${t("wrongDrawShapeRule")}</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+          <tr><td>${t("exactScoreRule")}</td><td>15</td><td>20</td><td>25</td><td>30</td><td>35</td></tr>
+          <tr><td>${t("winnerDiffRule")}</td><td>11</td><td>15</td><td>19</td><td>23</td><td>27</td></tr>
+          <tr><td>${t("winnerOnlyRule")}</td><td>7</td><td>10</td><td>13</td><td>16</td><td>19</td></tr>
+          <tr><td>${t("penWinnerWhenActualInPlayRule")}</td><td>3</td><td>5</td><td>7</td><td>9</td><td>11</td></tr>
+          <tr><td>${t("winnerWrongRule")}</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
         </tbody>
       </table>
     </section>
@@ -713,19 +722,20 @@ function renderRulesPage() {
         <thead>
           <tr>
             <th>${t("predictionResult")}</th>
-            <th>${t("round3216")}</th>
+            <th>${t("round32Only")}</th>
+            <th>${t("round16Only")}</th>
             <th>${t("quarterFinal")}</th>
             <th>${t("semiThird")}</th>
             <th>${t("final")}</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>${t("pensExactRule")}</td><td>15</td><td>20</td><td>25</td><td>30</td></tr>
-          <tr><td>${t("pensWinnerRule")}</td><td>11</td><td>15</td><td>19</td><td>23</td></tr>
-          <tr><td>${t("pensExactWrongRule")}</td><td>9</td><td>12</td><td>15</td><td>18</td></tr>
-          <tr><td>${t("pensWrongRule")}</td><td>6</td><td>8</td><td>10</td><td>12</td></tr>
-          <tr><td>${t("pensLiveWinnerRule")}</td><td>3</td><td>4</td><td>5</td><td>6</td></tr>
-          <tr><td>${t("winnerWrongRule")}</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+          <tr><td>${t("pensExactRule")}</td><td>15</td><td>19.5</td><td>25.35</td><td>30</td><td>35</td></tr>
+          <tr><td>${t("pensExactWrongRule")}</td><td>11</td><td>15</td><td>19</td><td>23</td><td>27</td></tr>
+          <tr><td>${t("pensWinnerRule")}</td><td>9</td><td>11.7</td><td>15.21</td><td>18</td><td>21</td></tr>
+          <tr><td>${t("pensWrongRule")}</td><td>6</td><td>7.8</td><td>10.14</td><td>12</td><td>14</td></tr>
+          <tr><td>${t("pensLiveWinnerRule")}</td><td>3</td><td>3.9</td><td>5.07</td><td>6</td><td>7</td></tr>
+          <tr><td>${t("winnerWrongRule")}</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
         </tbody>
       </table>
     </section>
@@ -847,6 +857,7 @@ function renderScoreForm(match) {
       </select></label>
       <button>${t("saveResult")}</button>
       <button type="button" class="ghost clear-score" ${hasScore ? "" : "disabled"}>${t("clear")}</button>
+      <button type="button" class="ghost delete-match">${t("delete")}</button>
       <div class="error wide"></div>
     </form>
   `;
@@ -1015,6 +1026,20 @@ function wireAdmin() {
       error.textContent = "";
       try {
         state.data = await api("/api/admin/results/clear", {
+          method: "POST",
+          body: JSON.stringify({ matchId: form.dataset.matchId })
+        });
+        render();
+      } catch (err) {
+        error.textContent = err.message;
+      }
+    });
+    form.querySelector(".delete-match").addEventListener("click", async () => {
+      if (!confirm(t("deleteMatchConfirm"))) return;
+      const error = form.querySelector(".error");
+      error.textContent = "";
+      try {
+        state.data = await api("/api/admin/matches/delete", {
           method: "POST",
           body: JSON.stringify({ matchId: form.dataset.matchId })
         });
