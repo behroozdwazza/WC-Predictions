@@ -74,6 +74,8 @@ const translations = {
     round32Only: "Round of 32",
     round16Only: "Round of 16",
     quarterFinal: "Quarter-final",
+    quarterThird: "Quarter-final / Third place",
+    semiFinal: "Semi-final",
     semiThird: "Semi-final / Third place",
     final: "Final",
     winnerDiffRule: "Winner and goal difference are correct.",
@@ -190,6 +192,8 @@ const translations = {
     round32Only: "یک‌سی‌ودوم نهایی",
     round16Only: "یک‌هشتم نهایی",
     quarterFinal: "یک‌چهارم نهایی",
+    quarterThird: "یک‌چهارم نهایی / رده‌بندی",
+    semiFinal: "نیمه‌نهایی",
     semiThird: "نیمه‌نهایی / رده‌بندی",
     final: "فینال",
     winnerDiffRule: "برنده و اختلاف گل درست باشد.",
@@ -700,8 +704,8 @@ function renderRulesPage() {
             <th>${t("predictionResult")}</th>
             <th>${t("round32Only")}</th>
             <th>${t("round16Only")}</th>
-            <th>${t("quarterFinal")}</th>
-            <th>${t("semiThird")}</th>
+            <th>${t("quarterThird")}</th>
+            <th>${t("semiFinal")}</th>
             <th>${t("final")}</th>
           </tr>
         </thead>
@@ -724,8 +728,8 @@ function renderRulesPage() {
             <th>${t("predictionResult")}</th>
             <th>${t("round32Only")}</th>
             <th>${t("round16Only")}</th>
-            <th>${t("quarterFinal")}</th>
-            <th>${t("semiThird")}</th>
+            <th>${t("quarterThird")}</th>
+            <th>${t("semiFinal")}</th>
             <th>${t("final")}</th>
           </tr>
         </thead>
