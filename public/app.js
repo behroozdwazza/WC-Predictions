@@ -33,6 +33,9 @@ const translations = {
     signOut: "Sign out",
     predictions: "Predictions",
     scoringRules: "Scoring Rules",
+    funFacts: "Fun Facts",
+    noFunFacts: "No fun facts have been generated yet.",
+    generatedOn: "Generated",
     admin: "Admin",
     fixtureTimezone: "Fixture timezone",
     allDays: "All days",
@@ -94,6 +97,10 @@ const translations = {
     updateScore: "Update Score",
     updateFixture: "Update Fixture",
     userManagement: "User Management",
+    generateFunFacts: "Generate Fun Facts",
+    funFactsNotice: "After entering the final scores for a match day, generate a playful recap using OpenAI.",
+    matchDay: "Match day",
+    generateReport: "Generate report",
     users: "Users",
     updateFixtureNotice: "After a stage finishes, replace placeholder names in the next-stage fixtures with the real teams.",
     updateFixtureButton: "Update fixture",
@@ -151,6 +158,9 @@ const translations = {
     signOut: "خروج",
     predictions: "پیش‌بینی‌ها",
     scoringRules: "قوانین امتیازدهی",
+    funFacts: "نکات جالب",
+    noFunFacts: "هنوز نکته جالبی ساخته نشده است.",
+    generatedOn: "ساخته شده در",
     admin: "مدیریت",
     fixtureTimezone: "منطقه زمانی بازی‌ها",
     allDays: "همه روزها",
@@ -212,6 +222,10 @@ const translations = {
     updateScore: "به‌روزرسانی نتیجه",
     updateFixture: "به‌روزرسانی برنامه",
     userManagement: "مدیریت کاربران",
+    generateFunFacts: "ساخت نکات جالب",
+    funFactsNotice: "پس از ثبت نتایج نهایی یک روز، با OpenAI یک گزارش کوتاه و سرگرم‌کننده بسازید.",
+    matchDay: "روز بازی",
+    generateReport: "ساخت گزارش",
     users: "کاربران",
     updateFixtureNotice: "پس از پایان هر مرحله، نام‌های جایگزین مرحله بعد را با نام تیم‌های واقعی عوض کنید.",
     updateFixtureButton: "به‌روزرسانی برنامه",
@@ -430,6 +444,10 @@ function dateKey(value) {
   return `${year}-${month}-${day}`;
 }
 
+function reportDateKey(value) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
 function formatDay(value) {
   return new Intl.DateTimeFormat(locale(), {
     timeZone: "UTC",
@@ -550,10 +568,12 @@ function render() {
         <div>
           <nav class="tabs">
             ${tabButton("matches", t("predictions"))}
+            ${tabButton("fun", t("funFacts"))}
             ${tabButton("rules", t("scoringRules"))}
             ${state.user.isAdmin ? tabButton("admin", t("admin")) : ""}
           </nav>
           ${state.tab === "matches" ? renderMatches() : ""}
+          ${state.tab === "fun" ? renderFunFactsPage() : ""}
           ${state.tab === "rules" ? renderRulesPage() : ""}
           ${state.tab === "admin" ? renderAdmin() : ""}
         </div>
@@ -677,6 +697,32 @@ function renderRules() {
   `;
 }
 
+function renderFunFactsPage() {
+  const reports = state.data.reports || [];
+  return `
+    <section class="panel">
+      <h2>${t("funFacts")}</h2>
+      ${reports.length ? reports.map(renderReport).join("") : `<div class="empty">${t("noFunFacts")}</div>`}
+    </section>
+  `;
+}
+
+function renderReport(report) {
+  const title = state.lang === "fa" ? report.titleFa : report.titleEn;
+  const bullets = state.lang === "fa" ? report.bulletsFa : report.bulletsEn;
+  return `
+    <article class="report-card">
+      <div class="report-head">
+        <h3>${escapeHtml(title || report.date)}</h3>
+        <span class="meta">${escapeHtml(report.date)} - ${t("generatedOn")} ${formatKickoff(report.createdAt)}</span>
+      </div>
+      <ul>
+        ${(bullets || []).map(item => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </article>
+  `;
+}
+
 function renderRulesPage() {
   return `
     <section class="panel rules-page">
@@ -757,10 +803,12 @@ function renderAdmin() {
       ${adminTabButton("scores", t("updateScore"))}
       ${adminTabButton("fixture", t("updateFixture"))}
       ${adminTabButton("users", t("userManagement"))}
+      ${adminTabButton("fun", t("generateFunFacts"))}
     </nav>
     ${state.adminTab === "scores" ? renderScoreAdmin() : ""}
     ${state.adminTab === "fixture" ? renderFixtureAdmin() : ""}
     ${state.adminTab === "users" ? renderUserAdmin() : ""}
+    ${state.adminTab === "fun" ? renderFunFactsAdmin() : ""}
   `;
 }
 
@@ -817,6 +865,26 @@ function renderScoreAdmin() {
         <button class="wide">${t("replaceFixture")}</button>
       </form>
     </section>
+  `;
+}
+
+function renderFunFactsAdmin() {
+  const dates = [...new Set(state.data.matches.filter(match => match.status === "finished").map(match => reportDateKey(match.kickoff)))].sort();
+  return `
+    <section class="panel" style="margin-top:16px">
+      <h2>${t("generateFunFacts")}</h2>
+      <div class="notice">${t("funFactsNotice")}</div>
+      <form id="fun-facts-form" class="admin-grid">
+        <label>${t("matchDay")}
+          <select name="date" required>
+            ${dates.map(date => `<option value="${date}">${formatDay(date)}</option>`).join("")}
+          </select>
+        </label>
+        <button>${t("generateReport")}</button>
+        <div class="error wide" id="fun-facts-error"></div>
+      </form>
+    </section>
+    ${renderFunFactsPage()}
   `;
 }
 
@@ -997,6 +1065,23 @@ function wireAdmin() {
         method: "POST",
         body: JSON.stringify({ matches })
       });
+      render();
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  document.querySelector("#fun-facts-form")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const error = document.querySelector("#fun-facts-error");
+    error.textContent = "";
+    try {
+      state.data = await api("/api/admin/fun-facts", {
+        method: "POST",
+        body: JSON.stringify({ date: form.elements.date.value })
+      });
+      state.tab = "fun";
       render();
     } catch (err) {
       error.textContent = err.message;

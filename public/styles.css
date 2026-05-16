@@ -436,6 +436,41 @@ body.rtl .scoreline {
   line-height: 1.45;
 }
 
+.report-card {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.report-card:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.report-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.report-card h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.report-card ul {
+  margin: 0;
+  padding-left: 22px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+body.rtl .report-card ul {
+  padding-left: 0;
+  padding-right: 22px;
+}
+
 .rules strong {
   color: var(--ink);
 }
