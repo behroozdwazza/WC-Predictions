@@ -36,6 +36,8 @@ const translations = {
     funFacts: "Fun Facts",
     noFunFacts: "No fun facts have been generated yet.",
     generatedOn: "Generated",
+    deleteReportConfirm: "Delete this fun facts report?",
+    predictionPoints: "Points",
     admin: "Admin",
     fixtureTimezone: "Fixture timezone",
     allDays: "All days",
@@ -161,6 +163,8 @@ const translations = {
     funFacts: "نکات جالب",
     noFunFacts: "هنوز نکته جالبی ساخته نشده است.",
     generatedOn: "ساخته شده در",
+    deleteReportConfirm: "این گزارش نکات جالب حذف شود؟",
+    predictionPoints: "امتیاز",
     admin: "مدیریت",
     fixtureTimezone: "منطقه زمانی بازی‌ها",
     allDays: "همه روزها",
@@ -629,6 +633,7 @@ function renderMatch(match) {
   const prediction = latestPrediction(match.id);
   const locked = isLocked(match);
   const canSubmit = !state.user.isAdmin && !locked;
+  const predictionPoints = prediction && match.status === "finished" ? scorePredictionPreview(match, prediction) : null;
   return `
     <article class="match">
       <div class="match-head">
@@ -643,10 +648,71 @@ function renderMatch(match) {
         </div>
         ${statusPill(match)}
       </div>
-      ${prediction ? `<div class="notice">${t("yourLatestPrediction")}: ${prediction.homeScore}-${prediction.awayScore}${prediction.penaltyWinner ? `, ${prediction.penaltyWinner === "home" ? escapeHtml(match.home) : escapeHtml(match.away)} ${t("onPenalties")}` : ""}</div>` : ""}
+      ${prediction ? `<div class="notice prediction-notice"><span>${t("yourLatestPrediction")}: ${prediction.homeScore}-${prediction.awayScore}${prediction.penaltyWinner ? `, ${prediction.penaltyWinner === "home" ? escapeHtml(match.home) : escapeHtml(match.away)} ${t("onPenalties")}` : ""}</span>${predictionPoints !== null ? `<strong>${t("predictionPoints")}: ${predictionPoints}</strong>` : ""}</div>` : ""}
       ${canSubmit ? renderPredictionForm(match) : `<div class="locked">${state.user.isAdmin ? t("adminNoPredictions") : t("predictionsClosed")}</div>`}
     </article>
   `;
+}
+
+function matchOutcome(home, away) {
+  if (!Number.isFinite(home) || !Number.isFinite(away)) return null;
+  if (home > away) return "home";
+  if (away > home) return "away";
+  return "draw";
+}
+
+function predictionWinner(prediction) {
+  const outcome = matchOutcome(prediction.homeScore, prediction.awayScore);
+  if (outcome === "draw") return prediction.penaltyWinner || "draw";
+  return outcome;
+}
+
+function matchWinner(match) {
+  const outcome = matchOutcome(match.homeScore, match.awayScore);
+  if (outcome === "draw") return match.penaltyWinner || "draw";
+  return outcome;
+}
+
+const pointPreview = {
+  round32: { exact: 15, diff: 11, winner: 7, penWinnerWhenActualInPlay: 3, penExact: 15, penDrawWinner: 9, penExactWrongWinner: 11, penDrawWrongWinner: 6, liveWinner: 3 },
+  round16: { exact: 20, diff: 15, winner: 10, penWinnerWhenActualInPlay: 5, penExact: 20, penDrawWinner: 12, penExactWrongWinner: 15, penDrawWrongWinner: 8, liveWinner: 4 },
+  quarter: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25, penDrawWinner: 15, penExactWrongWinner: 19, penDrawWrongWinner: 10, liveWinner: 5 },
+  third: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25, penDrawWinner: 15, penExactWrongWinner: 19, penDrawWrongWinner: 10, liveWinner: 5 },
+  semi: { exact: 30, diff: 23, winner: 16, penWinnerWhenActualInPlay: 9, penExact: 30, penDrawWinner: 18, penExactWrongWinner: 23, penDrawWrongWinner: 12, liveWinner: 6 },
+  final: { exact: 35, diff: 27, winner: 19, penWinnerWhenActualInPlay: 11, penExact: 35, penDrawWinner: 21, penExactWrongWinner: 27, penDrawWrongWinner: 14, liveWinner: 7 }
+};
+
+function scorePredictionPreview(match, prediction) {
+  if (!prediction || match.status !== "finished" || !Number.isFinite(match.homeScore) || !Number.isFinite(match.awayScore)) return 0;
+  const actualOutcome = matchOutcome(match.homeScore, match.awayScore);
+  const predictedOutcome = matchOutcome(prediction.homeScore, prediction.awayScore);
+  if (match.stage === "group") {
+    const actualDiff = match.homeScore - match.awayScore;
+    const predictedDiff = prediction.homeScore - prediction.awayScore;
+    if (match.homeScore === prediction.homeScore && match.awayScore === prediction.awayScore) return 10;
+    if (actualOutcome === predictedOutcome && actualDiff === predictedDiff) return 7;
+    if (actualOutcome === predictedOutcome && actualOutcome !== "draw") return 4;
+    return 0;
+  }
+
+  const table = pointPreview[match.stage] || pointPreview.round32;
+  const actualWinner = matchWinner(match);
+  const predictedWinner = predictionWinner(prediction);
+  const exactScore = match.homeScore === prediction.homeScore && match.awayScore === prediction.awayScore;
+  const sameDiff = (match.homeScore - match.awayScore) === (prediction.homeScore - prediction.awayScore);
+  if (match.penaltyWinner) {
+    if (predictedOutcome === "draw" && exactScore && predictedWinner === actualWinner) return table.penExact;
+    if (predictedOutcome === "draw" && predictedWinner === actualWinner) return table.penDrawWinner;
+    if (predictedOutcome === "draw" && exactScore && predictedWinner !== actualWinner) return table.penExactWrongWinner;
+    if (predictedOutcome === "draw") return table.penDrawWrongWinner;
+    if (predictedWinner === actualWinner) return table.liveWinner;
+    return 0;
+  }
+  if (exactScore) return table.exact;
+  if (actualOutcome === predictedOutcome && sameDiff) return table.diff;
+  if (predictedOutcome === "draw" && predictedWinner === actualWinner) return table.penWinnerWhenActualInPlay;
+  if (actualWinner === predictedWinner) return table.winner;
+  return 0;
 }
 
 function renderPredictionForm(match) {
@@ -714,7 +780,10 @@ function renderReport(report) {
     <article class="report-card">
       <div class="report-head">
         <h3>${escapeHtml(title || report.date)}</h3>
-        <span class="meta">${escapeHtml(report.date)} - ${t("generatedOn")} ${formatKickoff(report.createdAt)}</span>
+        <div class="report-actions">
+          <span class="meta">${escapeHtml(report.date)} - ${t("generatedOn")} ${formatKickoff(report.createdAt)}</span>
+          ${state.user?.isAdmin ? `<button type="button" class="ghost delete-report" data-report-id="${escapeHtml(report.id)}" data-report-date="${escapeHtml(report.date)}">${t("delete")}</button>` : ""}
+        </div>
       </div>
       <ul>
         ${(bullets || []).map(item => `<li>${escapeHtml(item)}</li>`).join("")}
@@ -1001,6 +1070,21 @@ function wireAdmin() {
     button.addEventListener("click", () => {
       state.adminTab = button.dataset.adminTab;
       render();
+    });
+  });
+
+  document.querySelectorAll(".delete-report").forEach(button => {
+    button.addEventListener("click", async () => {
+      if (!confirm(t("deleteReportConfirm"))) return;
+      try {
+        state.data = await api("/api/admin/fun-facts/delete", {
+          method: "POST",
+          body: JSON.stringify({ reportId: button.dataset.reportId, date: button.dataset.reportDate })
+        });
+        render();
+      } catch (err) {
+        alert(err.message);
+      }
     });
   });
 
