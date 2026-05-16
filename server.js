@@ -14,9 +14,9 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "worldcup-admin";
 
 const STAGE_POINTS = {
   round32: { exact: 15, diff: 11, winner: 7, penWinnerWhenActualInPlay: 3, penExact: 15, penDrawWinner: 9, penExactWrongWinner: 11, penDrawWrongWinner: 6, liveWinner: 3 },
-  round16: { exact: 20, diff: 15, winner: 10, penWinnerWhenActualInPlay: 5, penExact: 19.5, penDrawWinner: 11.7, penExactWrongWinner: 15, penDrawWrongWinner: 7.8, liveWinner: 3.9 },
-  quarter: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25.35, penDrawWinner: 15.21, penExactWrongWinner: 19, penDrawWrongWinner: 10.14, liveWinner: 5.07 },
-  third: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25.35, penDrawWinner: 15.21, penExactWrongWinner: 19, penDrawWrongWinner: 10.14, liveWinner: 5.07 },
+  round16: { exact: 20, diff: 15, winner: 10, penWinnerWhenActualInPlay: 5, penExact: 20, penDrawWinner: 12, penExactWrongWinner: 15, penDrawWrongWinner: 8, liveWinner: 4 },
+  quarter: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25, penDrawWinner: 15, penExactWrongWinner: 19, penDrawWrongWinner: 10, liveWinner: 5 },
+  third: { exact: 25, diff: 19, winner: 13, penWinnerWhenActualInPlay: 7, penExact: 25, penDrawWinner: 15, penExactWrongWinner: 19, penDrawWrongWinner: 10, liveWinner: 5 },
   semi: { exact: 30, diff: 23, winner: 16, penWinnerWhenActualInPlay: 9, penExact: 30, penDrawWinner: 18, penExactWrongWinner: 23, penDrawWrongWinner: 12, liveWinner: 6 },
   final: { exact: 35, diff: 27, winner: 19, penWinnerWhenActualInPlay: 11, penExact: 35, penDrawWinner: 21, penExactWrongWinner: 27, penDrawWrongWinner: 14, liveWinner: 7 }
 };
