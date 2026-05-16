@@ -596,6 +596,18 @@ async function handleApi(req, res, pathname) {
     }
   }
 
+  if (req.method === "POST" && pathname === "/api/admin/fun-facts/delete") {
+    if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
+    const body = await readBody(req);
+    const reportId = String(body.reportId || "");
+    const reportDate = String(body.date || "");
+    const beforeCount = db.reports.length;
+    db.reports = db.reports.filter(item => item.id !== reportId && item.date !== reportDate);
+    if (db.reports.length === beforeCount) return json(res, 404, { error: "Fun facts report was not found." });
+    await saveDb(db);
+    return json(res, 200, publicState(db));
+  }
+
   if (req.method === "POST" && pathname === "/api/admin/results") {
     if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
     const body = await readBody(req);
