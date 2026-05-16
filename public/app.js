@@ -734,11 +734,11 @@ function renderRulesPage() {
           </tr>
         </thead>
         <tbody>
-          <tr><td>${t("pensExactRule")}</td><td>15</td><td>19.5</td><td>25.35</td><td>30</td><td>35</td></tr>
+          <tr><td>${t("pensExactRule")}</td><td>15</td><td>20</td><td>25</td><td>30</td><td>35</td></tr>
           <tr><td>${t("pensExactWrongRule")}</td><td>11</td><td>15</td><td>19</td><td>23</td><td>27</td></tr>
-          <tr><td>${t("pensWinnerRule")}</td><td>9</td><td>11.7</td><td>15.21</td><td>18</td><td>21</td></tr>
-          <tr><td>${t("pensWrongRule")}</td><td>6</td><td>7.8</td><td>10.14</td><td>12</td><td>14</td></tr>
-          <tr><td>${t("pensLiveWinnerRule")}</td><td>3</td><td>3.9</td><td>5.07</td><td>6</td><td>7</td></tr>
+          <tr><td>${t("pensWinnerRule")}</td><td>9</td><td>12</td><td>15</td><td>18</td><td>21</td></tr>
+          <tr><td>${t("pensWrongRule")}</td><td>6</td><td>8</td><td>10</td><td>12</td><td>14</td></tr>
+          <tr><td>${t("pensLiveWinnerRule")}</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td></tr>
           <tr><td>${t("winnerWrongRule")}</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
         </tbody>
       </table>
