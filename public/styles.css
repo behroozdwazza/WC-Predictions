@@ -40,7 +40,7 @@ button {
   border-radius: 6px;
   background: var(--ink);
   color: white;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   cursor: pointer;
 }
@@ -70,6 +70,7 @@ textarea {
   padding: 10px 11px;
   background: white;
   color: var(--ink);
+  font-size: 16px;
 }
 
 textarea {
@@ -172,6 +173,8 @@ label {
   gap: 8px;
   margin-bottom: 18px;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .admin-tabs {
@@ -184,6 +187,7 @@ label {
   background: #ffffff;
   border: 1px solid var(--line);
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .tab.active {
@@ -610,11 +614,138 @@ body.rtl .rules-table th:first-child {
 }
 
 @media (max-width: 720px) {
+  body {
+    background: #f5f7fa;
+  }
+
   .topbar,
   .userbar,
   .match-head {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .topbar {
+    position: static;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .brand {
+    align-items: center;
+  }
+
+  .brand .brand-trophy {
+    display: none;
+  }
+
+  .brand .brand-logo {
+    width: 70px;
+    height: 34px;
+  }
+
+  .brand h1 {
+    font-size: 16px;
+  }
+
+  .brand p,
+  .userbar p {
+    font-size: 12px;
+  }
+
+  .userbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+  }
+
+  .userbar .language-control {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px 12px 28px;
+  }
+
+  .side {
+    grid-row: auto;
+    order: 2;
+  }
+
+  .tabs {
+    margin: 0 -12px 12px;
+    padding: 0 12px 4px;
+  }
+
+  .tab {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .panel,
+  .match,
+  .side-section,
+  .login {
+    border-radius: 7px;
+    box-shadow: none;
+  }
+
+  .login {
+    margin: 18px auto;
+    padding: 18px;
+  }
+
+  .login .brand-trophy {
+    width: 44px;
+    height: 54px;
+  }
+
+  .login .brand-logo {
+    width: 120px;
+    height: 54px;
+  }
+
+  .login h1 {
+    font-size: 22px;
+  }
+
+  .day-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .timezone-panel label {
+    max-width: none;
+  }
+
+  .match {
+    padding: 14px;
+  }
+
+  .teams {
+    gap: 10px;
+  }
+
+  .team-row {
+    align-items: flex-start;
+  }
+
+  .team {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+
+  .team-name {
+    align-items: flex-start;
+  }
+
+  .scoreline {
+    min-width: 44px;
+    font-size: 17px;
   }
 
   .prediction-form,
@@ -625,13 +756,63 @@ body.rtl .rules-table th:first-child {
     grid-template-columns: 1fr 1fr;
   }
 
+  .score-form > div:first-child,
+  .fixture-row > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .user-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
   .prediction-form button,
   .score-form button,
   .user-form button,
   #fixture-form button,
   .prediction-form .penalty-choice,
+  .admin-grid .wide,
   .score-form .wide,
   .user-form .wide {
     grid-column: 1 / -1;
+  }
+
+  .prediction-notice,
+  .report-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .report-actions {
+    justify-content: flex-start;
+  }
+
+  .rank-row {
+    grid-template-columns: 28px 1fr auto;
+  }
+
+  .rules-table {
+    min-width: 760px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 420px) {
+  .prediction-form,
+  .score-form,
+  .fixture-row {
+    grid-template-columns: 1fr;
+  }
+
+  .team-row {
+    gap: 8px;
+  }
+
+  .flag {
+    width: 24px;
+    height: 16px;
   }
 }
