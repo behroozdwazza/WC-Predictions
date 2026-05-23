@@ -7,6 +7,7 @@ const state = {
   tab: "matches",
   adminTab: "scores",
   day: "all",
+  chartPlayerId: "",
   timezone: localStorage.getItem("wc-timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   lang: localStorage.getItem("wc-lang") || "en"
 };
@@ -34,6 +35,18 @@ const translations = {
     predictions: "Predictions",
     scoringRules: "Scoring Rules",
     funFacts: "Fun Facts",
+    matchReports: "Match Reports",
+    noMatchReports: "No pre-match reports have been generated yet.",
+    preMatchReport: "Pre-match report",
+    predictionDistribution: "Prediction distribution",
+    mostFrequentScores: "Most frequent scores",
+    allPredictions: "All predictions",
+    participantsPredicted: "{count} of {total} participants predicted this match.",
+    percentOfPlayers: "% of players",
+    percentOfPredictions: "% of predictions",
+    draw: "Draw",
+    noPredictionsYet: "No predictions were submitted for this match.",
+    deletePreMatchReportConfirm: "Delete this pre-match report?",
     noFunFacts: "No fun facts have been generated yet.",
     generatedOn: "Generated",
     deleteReportConfirm: "Delete this fun facts report?",
@@ -99,7 +112,15 @@ const translations = {
     updateScore: "Update Score",
     updateFixture: "Update Fixture",
     userManagement: "User Management",
+    preMatchReports: "Pre-Match Reports",
     generateFunFacts: "Generate Fun Facts",
+    generatePreMatchReport: "Generate pre-match report",
+    preMatchNotice: "After a match starts, generate the prediction distribution report for that match.",
+    selectMatch: "Select match",
+    rankingChart: "Ranking chart",
+    showRankChart: "Rank graph",
+    rankChartTitle: "Ranking changes for {name}",
+    noRankHistory: "No completed match days yet.",
     funFactsNotice: "After entering the final scores for a match day, generate a playful recap using OpenAI.",
     matchDay: "Match day",
     generateReport: "Generate report",
@@ -161,6 +182,18 @@ const translations = {
     predictions: "پیش‌بینی‌ها",
     scoringRules: "قوانین امتیازدهی",
     funFacts: "نکات جالب",
+    matchReports: "گزارش‌های پیش از بازی",
+    noMatchReports: "هنوز گزارشی برای پیش‌بینی‌های پیش از بازی ساخته نشده است.",
+    preMatchReport: "گزارش پیش از بازی",
+    predictionDistribution: "توزیع پیش‌بینی‌ها",
+    mostFrequentScores: "نتیجه‌های پرتکرار",
+    allPredictions: "همه پیش‌بینی‌ها",
+    participantsPredicted: "{count} از {total} نفر برای این بازی پیش‌بینی ثبت کرده‌اند.",
+    percentOfPlayers: "٪ از کل بازیکنان",
+    percentOfPredictions: "٪ از پیش‌بینی‌ها",
+    draw: "مساوی",
+    noPredictionsYet: "برای این بازی پیش‌بینی ثبت نشده است.",
+    deletePreMatchReportConfirm: "این گزارش پیش از بازی حذف شود؟",
     noFunFacts: "هنوز نکته جالبی ساخته نشده است.",
     generatedOn: "ساخته شده در",
     deleteReportConfirm: "این گزارش نکات جالب حذف شود؟",
@@ -226,7 +259,15 @@ const translations = {
     updateScore: "به‌روزرسانی نتیجه",
     updateFixture: "به‌روزرسانی برنامه",
     userManagement: "مدیریت کاربران",
+    preMatchReports: "گزارش‌های پیش از بازی",
     generateFunFacts: "ساخت نکات جالب",
+    generatePreMatchReport: "ساخت گزارش پیش از بازی",
+    preMatchNotice: "پس از شروع بازی، گزارش توزیع پیش‌بینی‌ها را برای آن بازی بسازید.",
+    selectMatch: "انتخاب بازی",
+    rankingChart: "نمودار رتبه",
+    showRankChart: "نمودار رتبه",
+    rankChartTitle: "تغییرات رتبه {name}",
+    noRankHistory: "هنوز روز بازی تمام‌شده‌ای وجود ندارد.",
     funFactsNotice: "پس از ثبت نتایج نهایی یک روز، با OpenAI یک گزارش کوتاه و سرگرم‌کننده بسازید.",
     matchDay: "روز بازی",
     generateReport: "ساخت گزارش",
@@ -573,11 +614,13 @@ function render() {
           <nav class="tabs">
             ${tabButton("matches", t("predictions"))}
             ${tabButton("fun", t("funFacts"))}
+            ${tabButton("matchReports", t("matchReports"))}
             ${tabButton("rules", t("scoringRules"))}
             ${state.user.isAdmin ? tabButton("admin", t("admin")) : ""}
           </nav>
           ${state.tab === "matches" ? renderMatches() : ""}
           ${state.tab === "fun" ? renderFunFactsPage() : ""}
+          ${state.tab === "matchReports" ? renderMatchReportsPage() : ""}
           ${state.tab === "rules" ? renderRulesPage() : ""}
           ${state.tab === "admin" ? renderAdmin() : ""}
         </div>
@@ -715,6 +758,124 @@ function scorePredictionPreview(match, prediction) {
   return 0;
 }
 
+function buildRankHistory(playerId) {
+  const dates = [...new Set(state.data.matches.filter(match => match.status === "finished").map(match => reportDateKey(match.kickoff)))].sort();
+  return dates.map(date => {
+    const matches = state.data.matches.filter(match => match.status === "finished" && reportDateKey(match.kickoff) <= date);
+    const standings = calculatePreviewStandings(matches);
+    const index = standings.findIndex(player => player.id === playerId);
+    const player = standings[index];
+    return player ? { date, rank: index + 1, points: player.points } : null;
+  }).filter(Boolean);
+}
+
+function calculatePreviewStandings(matches) {
+  return state.data.players.map(player => {
+    let points = 0;
+    let exacts = 0;
+    let predicted = 0;
+    for (const match of matches) {
+      const prediction = state.data.predictions[`${player.id}:${match.id}`] || null;
+      if (prediction) predicted += 1;
+      const matchPoints = scorePredictionPreview(match, prediction);
+      points += matchPoints;
+      if (prediction && matchPoints >= 10) exacts += 1;
+    }
+    return { ...player, points: Math.round((points + Number.EPSILON) * 100) / 100, exacts, predicted };
+  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
+}
+
+function drawRankChart() {
+  const canvas = document.querySelector("#rank-chart");
+  if (!canvas || !state.chartPlayerId) return;
+  const player = state.data.players.find(item => item.id === state.chartPlayerId);
+  const history = buildRankHistory(state.chartPlayerId);
+  if (!player || !history.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.clientWidth || 980;
+  const cssHeight = canvas.clientHeight || 460;
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const pad = { top: 56, right: 28, bottom: 110, left: 48 };
+  const plotW = cssWidth - pad.left - pad.right;
+  const plotH = cssHeight - pad.top - pad.bottom;
+  const maxRank = Math.max(5, state.data.players.length, ...history.map(item => item.rank));
+  const x = index => pad.left + (history.length === 1 ? plotW / 2 : (index / (history.length - 1)) * plotW);
+  const y = rank => pad.top + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH;
+
+  ctx.fillStyle = "#fac18e";
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+  ctx.fillStyle = "#cfe1a8";
+  ctx.fillRect(pad.left, pad.top, plotW, plotH);
+  ctx.strokeStyle = "#4d5d45";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(pad.left, pad.top, plotW, plotH);
+
+  ctx.strokeStyle = "rgba(70, 95, 70, 0.45)";
+  ctx.fillStyle = "#1c1c1c";
+  ctx.font = "13px Segoe UI, sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const step = Math.max(1, Math.ceil(maxRank / 8));
+  for (let rank = 1; rank <= maxRank; rank += step) {
+    const yy = y(rank);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, yy);
+    ctx.lineTo(pad.left + plotW, yy);
+    ctx.stroke();
+    ctx.fillText(rank, pad.left - 10, yy);
+  }
+
+  ctx.fillStyle = "#0f1115";
+  ctx.font = "700 24px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(t("rankChartTitle", { name: player.name }), cssWidth / 2, 18);
+
+  ctx.strokeStyle = "#3f7ebc";
+  ctx.fillStyle = "#3f7ebc";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  history.forEach((item, index) => {
+    const xx = x(index);
+    const yy = y(item.rank);
+    if (index === 0) ctx.moveTo(xx, yy);
+    else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke();
+
+  history.forEach((item, index) => {
+    const xx = x(index);
+    const yy = y(item.rank);
+    ctx.beginPath();
+    ctx.arc(xx, yy, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0b0d10";
+    ctx.font = "700 14px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(item.rank, xx, yy - 10);
+    ctx.fillStyle = "#3f7ebc";
+  });
+
+  ctx.fillStyle = "#0b0d10";
+  ctx.font = "12px Segoe UI, sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  history.forEach((item, index) => {
+    const xx = x(index);
+    ctx.save();
+    ctx.translate(xx, pad.top + plotH + 18);
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillText(formatDay(item.date), 0, 0);
+    ctx.restore();
+  });
+}
+
 function renderPredictionForm(match) {
   return `
     <form class="prediction-form" data-match-id="${match.id}" data-stage="${match.stage}">
@@ -788,6 +949,54 @@ function renderReport(report) {
       <ul>
         ${(bullets || []).map(item => `<li>${escapeHtml(item)}</li>`).join("")}
       </ul>
+    </article>
+  `;
+}
+
+function renderMatchReportsPage() {
+  const reports = state.data.preMatchReports || [];
+  return `
+    <section class="panel">
+      <h2>${t("matchReports")}</h2>
+      ${reports.length ? reports.map(renderPreMatchReport).join("") : `<div class="empty">${t("noMatchReports")}</div>`}
+    </section>
+  `;
+}
+
+function renderPreMatchReport(report) {
+  return `
+    <article class="report-card pre-match-card">
+      <div class="report-head">
+        <div>
+          <h3>${t("preMatchReport")}: ${escapeHtml(report.fixture)}</h3>
+          <span class="meta">${formatKickoff(report.kickoff)} - ${t("generatedOn")} ${formatKickoff(report.createdAt)}</span>
+        </div>
+        ${state.user?.isAdmin ? `<button type="button" class="ghost delete-prematch-report" data-report-id="${escapeHtml(report.id)}">${t("delete")}</button>` : ""}
+      </div>
+      <p class="meta">${t("participantsPredicted", { count: report.totalPredictions, total: report.totalPlayers })}</p>
+      <h4>${t("predictionDistribution")}</h4>
+      <div class="distribution-list">
+        ${(report.outcomes || []).map(item => `
+          <div class="distribution-row">
+            <span>${escapeHtml(item.label === "Draw" ? t("draw") : item.label)}</span>
+            <strong>${item.count}</strong>
+            <div class="bar"><span style="width:${Math.max(0, Math.min(100, item.percentOfPredictions || 0))}%"></span></div>
+            <span class="meta">${item.percentOfPredictions}% ${t("percentOfPredictions")} / ${item.percentOfPlayers}% ${t("percentOfPlayers")}</span>
+          </div>
+        `).join("")}
+      </div>
+      <h4>${t("mostFrequentScores")}</h4>
+      ${(report.mostFrequentScores || []).length ? `
+        <div class="score-chip-list">
+          ${report.mostFrequentScores.map(item => `<span class="score-chip">${escapeHtml(item.score)} · ${item.count}</span>`).join("")}
+        </div>
+      ` : `<div class="empty">${t("noPredictionsYet")}</div>`}
+      <details>
+        <summary>${t("allPredictions")}</summary>
+        <div class="prediction-mini-list">
+          ${(report.predictions || []).map(item => `<span>${escapeHtml(item.player)}: ${escapeHtml(item.score)}</span>`).join("") || t("noPredictionsYet")}
+        </div>
+      </details>
     </article>
   `;
 }
@@ -873,11 +1082,13 @@ function renderAdmin() {
       ${adminTabButton("fixture", t("updateFixture"))}
       ${adminTabButton("users", t("userManagement"))}
       ${adminTabButton("fun", t("generateFunFacts"))}
+      ${adminTabButton("prematch", t("preMatchReports"))}
     </nav>
     ${state.adminTab === "scores" ? renderScoreAdmin() : ""}
     ${state.adminTab === "fixture" ? renderFixtureAdmin() : ""}
     ${state.adminTab === "users" ? renderUserAdmin() : ""}
     ${state.adminTab === "fun" ? renderFunFactsAdmin() : ""}
+    ${state.adminTab === "prematch" ? renderPreMatchAdmin() : ""}
   `;
 }
 
@@ -890,6 +1101,7 @@ function renderUserAdmin() {
     <section class="panel" style="margin-top:16px">
       <h2>${t("users")}</h2>
       ${state.data.players.length ? state.data.players.map(renderUserForm).join("") : `<div class="empty">${t("noPlayers")}</div>`}
+      ${renderRankChartPanel()}
     </section>
   `;
 }
@@ -957,6 +1169,39 @@ function renderFunFactsAdmin() {
   `;
 }
 
+function renderPreMatchAdmin() {
+  const closedMatches = state.data.matches.filter(match => Date.now() >= new Date(match.kickoff).getTime());
+  return `
+    <section class="panel" style="margin-top:16px">
+      <h2>${t("generatePreMatchReport")}</h2>
+      <div class="notice">${t("preMatchNotice")}</div>
+      <form id="pre-match-form" class="admin-grid">
+        <label>${t("selectMatch")}
+          <select name="matchId" required>
+            ${closedMatches.map(match => `<option value="${match.id}">${match.number}. ${escapeHtml(match.home)} vs ${escapeHtml(match.away)} - ${formatKickoff(match.kickoff)}</option>`).join("")}
+          </select>
+        </label>
+        <button>${t("generatePreMatchReport")}</button>
+        <div class="error wide" id="pre-match-error"></div>
+      </form>
+    </section>
+    ${renderMatchReportsPage()}
+  `;
+}
+
+function renderRankChartPanel() {
+  if (!state.chartPlayerId) return "";
+  const player = state.data.players.find(item => item.id === state.chartPlayerId);
+  if (!player) return "";
+  const history = buildRankHistory(state.chartPlayerId);
+  return `
+    <section class="rank-chart-panel">
+      <h3>${t("rankChartTitle", { name: escapeHtml(player.name) })}</h3>
+      ${history.length ? `<canvas id="rank-chart" width="980" height="460"></canvas>` : `<div class="empty">${t("noRankHistory")}</div>`}
+    </section>
+  `;
+}
+
 function renderFixtureEditor() {
   const knockoutMatches = state.data.matches.filter(match => match.stage !== "group");
   return knockoutMatches.map(match => `
@@ -978,6 +1223,7 @@ function renderUserForm(player) {
       <label>${t("screenName")}<input name="screenName" value="${escapeHtml(player.name || "")}" required></label>
       <label>${t("newPassword")}<input name="password" type="password" placeholder="${t("keepPassword")}"></label>
       <button>${t("saveUser")}</button>
+      <button type="button" class="ghost rank-chart-button">${t("showRankChart")}</button>
       <button type="button" class="ghost delete-user">${t("delete")}</button>
       <div class="error wide"></div>
     </form>
@@ -1088,6 +1334,21 @@ function wireAdmin() {
     });
   });
 
+  document.querySelectorAll(".delete-prematch-report").forEach(button => {
+    button.addEventListener("click", async () => {
+      if (!confirm(t("deletePreMatchReportConfirm"))) return;
+      try {
+        state.data = await api("/api/admin/pre-match-report/delete", {
+          method: "POST",
+          body: JSON.stringify({ reportId: button.dataset.reportId })
+        });
+        render();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  });
+
   document.querySelectorAll(".user-form").forEach(form => {
     form.addEventListener("submit", async event => {
       event.preventDefault();
@@ -1122,6 +1383,10 @@ function wireAdmin() {
       } catch (err) {
         error.textContent = err.message;
       }
+    });
+    form.querySelector(".rank-chart-button").addEventListener("click", () => {
+      state.chartPlayerId = form.dataset.playerId;
+      render();
     });
   });
 
@@ -1166,6 +1431,23 @@ function wireAdmin() {
         body: JSON.stringify({ date: form.elements.date.value })
       });
       state.tab = "fun";
+      render();
+    } catch (err) {
+      error.textContent = err.message;
+    }
+  });
+
+  document.querySelector("#pre-match-form")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const error = document.querySelector("#pre-match-error");
+    error.textContent = "";
+    try {
+      state.data = await api("/api/admin/pre-match-report", {
+        method: "POST",
+        body: JSON.stringify({ matchId: form.elements.matchId.value })
+      });
+      state.adminTab = "prematch";
       render();
     } catch (err) {
       error.textContent = err.message;
@@ -1237,6 +1519,8 @@ function wireAdmin() {
       alert(err.message);
     }
   });
+
+  drawRankChart();
 }
 
 load();

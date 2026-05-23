@@ -482,6 +482,80 @@ body.rtl .report-actions {
   line-height: 1.55;
 }
 
+.pre-match-card h4 {
+  margin: 14px 0 8px;
+  font-size: 14px;
+}
+
+.distribution-list,
+.prediction-mini-list,
+.score-chip-list {
+  display: grid;
+  gap: 8px;
+}
+
+.distribution-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 42px minmax(140px, 1.4fr) minmax(180px, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.bar {
+  height: 12px;
+  border-radius: 999px;
+  background: #e1e7ef;
+  overflow: hidden;
+}
+
+.bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.score-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.score-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--soft);
+  font-weight: 700;
+}
+
+.prediction-mini-list {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.rank-chart-panel {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.rank-chart-panel h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+#rank-chart {
+  width: 100%;
+  height: auto;
+  max-height: 520px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: block;
+}
+
 body.rtl .report-card ul {
   padding-left: 0;
   padding-right: 22px;
@@ -561,7 +635,7 @@ body.rtl .rules-table th:first-child {
 }
 
 .user-form {
-  grid-template-columns: minmax(120px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) auto auto;
+  grid-template-columns: minmax(120px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) auto auto auto;
   align-items: end;
   padding: 12px 0;
   border-top: 1px solid var(--line);
@@ -792,6 +866,15 @@ body.rtl .rules-table th:first-child {
 
   .rank-row {
     grid-template-columns: 28px 1fr auto;
+  }
+
+  .distribution-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .distribution-row .bar,
+  .distribution-row .meta {
+    grid-column: 1 / -1;
   }
 
   .rules-table {
