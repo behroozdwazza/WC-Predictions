@@ -40,6 +40,8 @@ const translations = {
     preMatchReport: "Pre-match report",
     predictionDistribution: "Prediction distribution",
     mostFrequentScores: "Most frequent scores",
+    frequentPredictionSentence: "{count} players predicted this match {score} in favor of {team}.",
+    frequentDrawSentence: "{count} players predicted this match to end {score}.",
     allPredictions: "All predictions",
     participantsPredicted: "{count} of {total} participants predicted this match.",
     percentOfPlayers: "% of players",
@@ -187,6 +189,8 @@ const translations = {
     preMatchReport: "گزارش پیش از بازی",
     predictionDistribution: "توزیع پیش‌بینی‌ها",
     mostFrequentScores: "نتیجه‌های پرتکرار",
+    frequentPredictionSentence: "{count} نفر این بازی را {score} به نفع {team} پیش‌بینی کردند.",
+    frequentDrawSentence: "{count} نفر این بازی را مساوی {score} پیش‌بینی کردند.",
     allPredictions: "همه پیش‌بینی‌ها",
     participantsPredicted: "{count} از {total} نفر برای این بازی پیش‌بینی ثبت کرده‌اند.",
     percentOfPlayers: "٪ از کل بازیکنان",
@@ -634,6 +638,7 @@ function render() {
   wireCommon();
   if (state.tab === "matches") wireMatches();
   if (state.tab === "admin") wireAdmin();
+  if (state.tab === "matchReports") drawPredictionPieCharts();
 }
 
 function tabButton(tab, label) {
@@ -876,6 +881,103 @@ function drawRankChart() {
   });
 }
 
+function drawPredictionPieCharts() {
+  document.querySelectorAll(".prediction-pie").forEach(canvas => {
+    const reportId = canvas.id.replace(/^pie-/, "");
+    const report = (state.data.preMatchReports || []).find(item => item.id === reportId);
+    if (!report) return;
+    drawPredictionPie(canvas, report);
+  });
+}
+
+function drawPredictionPie(canvas, report) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.clientWidth || 360;
+  const cssHeight = canvas.clientHeight || 260;
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const values = (report.outcomes || []).map(item => ({ ...item, value: item.count || 0 }));
+  const total = values.reduce((sum, item) => sum + item.value, 0);
+  const cx = cssWidth / 2;
+  const cy = cssHeight / 2 + 8;
+  const radius = Math.min(cssWidth, cssHeight) * 0.28;
+  const colors = { home: "#1f77b4", draw: "#c9a227", away: "#d95f50" };
+
+  ctx.fillStyle = "#f7fafc";
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "700 15px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${report.home} vs ${report.away}`, cx, 22);
+
+  if (!total) {
+    ctx.fillStyle = "#627084";
+    ctx.font = "14px Segoe UI, sans-serif";
+    ctx.fillText(t("noPredictionsYet"), cx, cy);
+    return;
+  }
+
+  let angle = -Math.PI / 2;
+  for (const item of values) {
+    const slice = (item.value / total) * Math.PI * 2;
+    if (slice > 0) {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, angle, angle + slice);
+      ctx.closePath();
+      ctx.fillStyle = colors[item.key] || "#627084";
+      ctx.fill();
+      const labelAngle = angle + slice / 2;
+      const percent = Math.round((item.value / total) * 100);
+      if (percent >= 8) {
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "700 14px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${percent}%`, cx + Math.cos(labelAngle) * radius * 0.58, cy + Math.sin(labelAngle) * radius * 0.58);
+      }
+    }
+    angle += slice;
+  }
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  drawCanvasFlag(ctx, flags[report.home], cx - radius - 54, cy - 24, 48, 32, report.home);
+  drawCanvasFlag(ctx, flags[report.away], cx + radius + 10, cy - 24, 48, 32, report.away);
+
+  ctx.fillStyle = colors.draw;
+  ctx.beginPath();
+  ctx.arc(cx, cy + radius + 32, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#17202a";
+  ctx.font = "12px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(t("draw"), cx, cy + radius + 56);
+}
+
+function drawCanvasFlag(ctx, code, x, y, w, h, fallback) {
+  ctx.save();
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#d8dee8";
+  ctx.lineWidth = 1;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = "#17202a";
+  ctx.font = "700 11px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(code ? code.toUpperCase() : fallback.slice(0, 3).toUpperCase(), x + w / 2, y + h / 2);
+  ctx.restore();
+}
+
 function renderPredictionForm(match) {
   return `
     <form class="prediction-form" data-match-id="${match.id}" data-stage="${match.stage}">
@@ -964,6 +1066,7 @@ function renderMatchReportsPage() {
 }
 
 function renderPreMatchReport(report) {
+  const chartId = `pie-${report.id}`;
   return `
     <article class="report-card pre-match-card">
       <div class="report-head">
@@ -975,21 +1078,24 @@ function renderPreMatchReport(report) {
       </div>
       <p class="meta">${t("participantsPredicted", { count: report.totalPredictions, total: report.totalPlayers })}</p>
       <h4>${t("predictionDistribution")}</h4>
-      <div class="distribution-list">
-        ${(report.outcomes || []).map(item => `
-          <div class="distribution-row">
-            <span>${escapeHtml(item.label === "Draw" ? t("draw") : item.label)}</span>
-            <strong>${item.count}</strong>
-            <div class="bar"><span style="width:${Math.max(0, Math.min(100, item.percentOfPredictions || 0))}%"></span></div>
-            <span class="meta">${item.percentOfPredictions}% ${t("percentOfPredictions")} / ${item.percentOfPlayers}% ${t("percentOfPlayers")}</span>
-          </div>
-        `).join("")}
+      <div class="pie-report">
+        <canvas class="prediction-pie" id="${chartId}" width="360" height="260"></canvas>
+        <div class="pie-legend">
+          ${(report.outcomes || []).map(item => `
+            <div class="pie-legend-row">
+              ${item.key === "draw" ? `<span class="draw-dot"></span>` : teamFlagImg(item.label)}
+              <span>${escapeHtml(item.label === "Draw" ? t("draw") : item.label)}</span>
+              <strong>${item.count}</strong>
+              <span class="meta">${item.percentOfPredictions}% ${t("percentOfPredictions")}</span>
+            </div>
+          `).join("")}
+        </div>
       </div>
       <h4>${t("mostFrequentScores")}</h4>
       ${(report.mostFrequentScores || []).length ? `
-        <div class="score-chip-list">
-          ${report.mostFrequentScores.map(item => `<span class="score-chip">${escapeHtml(item.score)} · ${item.count}</span>`).join("")}
-        </div>
+        <ul class="frequent-score-list">
+          ${report.mostFrequentScores.map(item => `<li>${escapeHtml(frequentScoreSentence(report, item))}</li>`).join("")}
+        </ul>
       ` : `<div class="empty">${t("noPredictionsYet")}</div>`}
       <details>
         <summary>${t("allPredictions")}</summary>
@@ -999,6 +1105,25 @@ function renderPreMatchReport(report) {
       </details>
     </article>
   `;
+}
+
+function teamFlagImg(team) {
+  const code = flags[team] || "";
+  return code ? `<img class="flag" src="https://flagcdn.com/w40/${code}.png" alt="" loading="lazy">` : `<span class="draw-dot"></span>`;
+}
+
+function frequentScoreSentence(report, item) {
+  const parsed = parseScoreLabel(item.score);
+  if (!parsed) return `${item.count} - ${item.score}`;
+  const winner = parsed.home > parsed.away ? report.home : parsed.away > parsed.home ? report.away : "";
+  if (!winner) return t("frequentDrawSentence", { count: item.count, score: `${parsed.home}-${parsed.away}` });
+  return t("frequentPredictionSentence", { count: item.count, score: `${parsed.home}-${parsed.away}`, team: winner });
+}
+
+function parseScoreLabel(score) {
+  const match = String(score || "").match(/^(\d+)-(\d+)/);
+  if (!match) return null;
+  return { home: Number(match[1]), away: Number(match[2]) };
 }
 
 function renderRulesPage() {
@@ -1348,6 +1473,7 @@ function wireAdmin() {
       }
     });
   });
+  drawPredictionPieCharts();
 
   document.querySelectorAll(".user-form").forEach(form => {
     form.addEventListener("submit", async event => {
