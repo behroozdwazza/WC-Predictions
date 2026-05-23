@@ -41,6 +41,10 @@ npm start
 
 After entering final scores for a match day, sign in as admin and use **Generate Fun Facts**. The generated recap is saved and shown to all users.
 
+## Admin reports
+
+After a match starts, admins can generate a pre-match report showing prediction distribution and the most common predicted scores. Admins can also generate a ranking trend chart for each player from the user management section.
+
 ## Scoring
 
 Group stage:

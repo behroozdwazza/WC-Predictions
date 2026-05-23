@@ -46,6 +46,7 @@ async function loadDb() {
       predictions: [],
       sessions: [],
       reports: [],
+      preMatchReports: [],
       settings: {}
     });
     await saveDb(db);
@@ -62,6 +63,7 @@ function normalizeDb(db) {
     predictions: Array.isArray(db.predictions) ? db.predictions : [],
     sessions: Array.isArray(db.sessions) ? db.sessions : [],
     reports: Array.isArray(db.reports) ? db.reports : [],
+    preMatchReports: Array.isArray(db.preMatchReports) ? db.preMatchReports : [],
     settings: db.settings || {}
   };
 }
@@ -118,6 +120,7 @@ function publicState(db) {
     matches: db.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
     predictions: Object.fromEntries(latest),
     reports: db.reports.sort((a, b) => b.date.localeCompare(a.date) || new Date(b.createdAt) - new Date(a.createdAt)),
+    preMatchReports: db.preMatchReports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
     standings,
     rules: { group: "10 exact, 7 outcome and goal difference, 4 winner only, 0 wrong shape or missing.", knockout: "Points scale by stage and whether the winner is decided in play or penalties." },
     settings: { ...db.settings }
@@ -466,6 +469,68 @@ async function generateFunFactsReport(db, date) {
   };
 }
 
+function buildPreMatchReport(db, matchId) {
+  const match = db.matches.find(item => item.id === matchId);
+  if (!match) throw new Error("Match was not found.");
+  if (Date.now() < new Date(match.kickoff).getTime()) throw new Error("Prediction window is still open for this match.");
+
+  const latest = latestPredictions(db.predictions);
+  const rows = db.players.map(player => {
+    const prediction = latest.get(`${player.id}:${match.id}`) || null;
+    if (!prediction) return null;
+    return {
+      player: safePlayer(player),
+      prediction,
+      outcome: winnerFromPrediction(prediction),
+      score: `${prediction.homeScore}-${prediction.awayScore}${prediction.penaltyWinner ? ` ${prediction.penaltyWinner}` : ""}`
+    };
+  }).filter(Boolean);
+
+  const totalPlayers = db.players.length;
+  const totalPredictions = rows.length;
+  const outcomeCounts = { home: 0, draw: 0, away: 0 };
+  const scoreCounts = new Map();
+  for (const row of rows) {
+    outcomeCounts[row.outcome] = (outcomeCounts[row.outcome] || 0) + 1;
+    scoreCounts.set(row.score, (scoreCounts.get(row.score) || 0) + 1);
+  }
+
+  const mostFrequentScores = [...scoreCounts.entries()]
+    .map(([score, count]) => ({ score, count, percentOfPredictions: percent(count, totalPredictions) }))
+    .sort((a, b) => b.count - a.count || a.score.localeCompare(b.score))
+    .slice(0, 5);
+
+  return {
+    id: id("prematch"),
+    matchId: match.id,
+    matchNumber: match.number,
+    fixture: `${match.home} vs ${match.away}`,
+    home: match.home,
+    away: match.away,
+    kickoff: match.kickoff,
+    createdAt: new Date().toISOString(),
+    totalPlayers,
+    totalPredictions,
+    missingPredictions: Math.max(0, totalPlayers - totalPredictions),
+    outcomes: [
+      { key: "home", label: match.home, count: outcomeCounts.home || 0, percentOfPlayers: percent(outcomeCounts.home || 0, totalPlayers), percentOfPredictions: percent(outcomeCounts.home || 0, totalPredictions) },
+      { key: "draw", label: "Draw", count: outcomeCounts.draw || 0, percentOfPlayers: percent(outcomeCounts.draw || 0, totalPlayers), percentOfPredictions: percent(outcomeCounts.draw || 0, totalPredictions) },
+      { key: "away", label: match.away, count: outcomeCounts.away || 0, percentOfPlayers: percent(outcomeCounts.away || 0, totalPlayers), percentOfPredictions: percent(outcomeCounts.away || 0, totalPredictions) }
+    ],
+    mostFrequentScores,
+    predictions: rows.map(row => ({
+      player: row.player.name,
+      score: row.score,
+      outcome: row.outcome
+    })).sort((a, b) => a.player.localeCompare(b.player))
+  };
+}
+
+function percent(count, total) {
+  if (!total) return 0;
+  return Math.round((count / total) * 1000) / 10;
+}
+
 async function handleApi(req, res, pathname) {
   const db = await loadDb();
 
@@ -576,6 +641,7 @@ async function handleApi(req, res, pathname) {
     if (!match) return json(res, 404, { error: "Match was not found." });
     db.matches = db.matches.filter(item => item.id !== match.id);
     db.predictions = db.predictions.filter(item => item.matchId !== match.id);
+    db.preMatchReports = db.preMatchReports.filter(item => item.matchId !== match.id);
     await saveDb(db);
     return json(res, 200, publicState(db));
   }
@@ -604,6 +670,31 @@ async function handleApi(req, res, pathname) {
     const beforeCount = db.reports.length;
     db.reports = db.reports.filter(item => item.id !== reportId && item.date !== reportDate);
     if (db.reports.length === beforeCount) return json(res, 404, { error: "Fun facts report was not found." });
+    await saveDb(db);
+    return json(res, 200, publicState(db));
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/pre-match-report") {
+    if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
+    const body = await readBody(req);
+    try {
+      const report = buildPreMatchReport(db, String(body.matchId || ""));
+      db.preMatchReports = db.preMatchReports.filter(item => item.matchId !== report.matchId);
+      db.preMatchReports.push(report);
+      await saveDb(db);
+      return json(res, 200, publicState(db));
+    } catch (error) {
+      return json(res, 400, { error: error.message });
+    }
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/pre-match-report/delete") {
+    if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
+    const body = await readBody(req);
+    const reportId = String(body.reportId || "");
+    const beforeCount = db.preMatchReports.length;
+    db.preMatchReports = db.preMatchReports.filter(item => item.id !== reportId);
+    if (db.preMatchReports.length === beforeCount) return json(res, 404, { error: "Pre-match report was not found." });
     await saveDb(db);
     return json(res, 200, publicState(db));
   }
@@ -653,6 +744,7 @@ async function handleApi(req, res, pathname) {
       status: String(match.status || "scheduled"),
       sourceId: String(match.sourceId || match.number || "")
     }));
+    db.preMatchReports = [];
     await saveDb(db);
     return json(res, 200, publicState(db));
   }
