@@ -15,7 +15,7 @@
 }
 
 html[lang="fa"] {
-  font-family: Tahoma, Vazirmatn, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: "B Traffic", "B Traffic_0", Tahoma, Vazirmatn, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
@@ -87,6 +87,9 @@ label {
 
 .shell {
   min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(238, 242, 246, 0.94)),
+    #eef2f6;
 }
 
 .topbar {
@@ -192,8 +195,8 @@ label {
 
 .tab.active {
   color: white;
-  background: var(--blue);
-  border-color: var(--blue);
+  background: #163d75;
+  border-color: #163d75;
 }
 
 .panel,
@@ -232,6 +235,62 @@ label {
   max-height: 72vh;
   object-fit: contain;
   filter: drop-shadow(0 18px 34px rgba(196, 151, 61, 0.24));
+}
+
+.mascot-banner {
+  display: grid;
+  grid-template-columns: minmax(190px, 320px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(14px, 3vw, 28px);
+  min-height: 156px;
+  margin-bottom: 18px;
+  padding: 14px clamp(16px, 3vw, 28px);
+  overflow: hidden;
+  border: 1px solid rgba(22, 61, 117, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(239, 248, 241, 0.96) 52%, rgba(255, 246, 219, 0.94) 100%);
+  box-shadow: var(--shadow);
+}
+
+.mascot-banner img {
+  width: 100%;
+  max-height: 152px;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 14px 20px rgba(22, 32, 42, 0.16));
+}
+
+.mascot-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.mascot-badges span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #102237;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(22, 61, 117, 0.12);
+  font-weight: 850;
+}
+
+.mascot-badges span:nth-child(1) {
+  box-shadow: inset 0 -3px 0 rgba(218, 38, 32, 0.22);
+}
+
+.mascot-badges span:nth-child(2) {
+  box-shadow: inset 0 -3px 0 rgba(6, 128, 82, 0.24);
+}
+
+.mascot-badges span:nth-child(3) {
+  box-shadow: inset 0 -3px 0 rgba(44, 77, 167, 0.24);
 }
 
 .login .brand-media {
@@ -806,6 +865,30 @@ body.rtl .rules-table th:first-child {
     flex-direction: column;
     gap: 14px;
     padding: 14px 12px 28px;
+  }
+
+  .mascot-banner {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 10px;
+    min-height: auto;
+    margin-bottom: 14px;
+    padding: 12px;
+  }
+
+  .mascot-banner img {
+    max-height: 112px;
+  }
+
+  .mascot-badges {
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .mascot-badges span {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 
   .side {
