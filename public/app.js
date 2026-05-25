@@ -339,7 +339,6 @@ const timezones = [
 const trophyImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/FIFA%20World%20Cup%20Trophy%20%28Ank%20Kumar%2C%20Infosys%20Limited%29%2002.jpg?width=160";
 const logoImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/2026%20FIFA%20World%20Cup%20emblem%20%28with%20wordmark%29.svg?width=220";
 const loginHeroImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/2026%20FIFA%20World%20Cup%20emblem.svg?width=420";
-const mascotImage = "https://platform.starsandstripesfc.com/wp-content/uploads/sites/151/2025/09/DGM_048_Mascot-PNG-Crops-and-Website-Pop-Up-Graphics-v2-with-Logo-2_Group-3-1200x900-1.png?crop=0%2C5.5555555555556%2C100%2C88.888888888889&quality=90&strip=all&w=1200";
 
 const flags = {
   Algeria: "dz",
@@ -543,19 +542,6 @@ function brandImages() {
   `;
 }
 
-function mascotBanner() {
-  return `
-    <section class="mascot-banner" aria-label="Maple, Zayu, and Clutch">
-      <img src="${mascotImage}" alt="Maple, Zayu, and Clutch, the FIFA World Cup 2026 mascots" loading="lazy">
-      <div class="mascot-badges" aria-hidden="true">
-        <span>Maple</span>
-        <span>Zayu</span>
-        <span>Clutch</span>
-      </div>
-    </section>
-  `;
-}
-
 function renderLogin() {
   applyLanguageDirection();
   const isSignup = state.authMode === "signup";
@@ -641,7 +627,6 @@ function render() {
             ${tabButton("rules", t("scoringRules"))}
             ${state.user.isAdmin ? tabButton("admin", t("admin")) : ""}
           </nav>
-          ${mascotBanner()}
           ${state.tab === "matches" ? renderMatches() : ""}
           ${state.tab === "fun" ? renderFunFactsPage() : ""}
           ${state.tab === "matchReports" ? renderMatchReportsPage() : ""}
