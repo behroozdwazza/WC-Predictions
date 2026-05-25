@@ -206,6 +206,34 @@ label {
   box-shadow: var(--shadow);
 }
 
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(360px, 520px);
+  align-items: center;
+  gap: clamp(24px, 5vw, 72px);
+  padding: clamp(24px, 5vw, 64px);
+  background: #080808;
+}
+
+.login-visual {
+  min-height: min(760px, calc(100vh - 96px));
+  display: grid;
+  place-items: center;
+  padding: clamp(28px, 5vw, 64px);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: #000000;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+}
+
+.login-visual img {
+  width: min(300px, 70vw);
+  max-height: 72vh;
+  object-fit: contain;
+  filter: drop-shadow(0 18px 34px rgba(196, 151, 61, 0.24));
+}
+
 .login .brand-media {
   margin-bottom: 14px;
 }
@@ -232,6 +260,14 @@ label {
   width: min(520px, calc(100vw - 32px));
   margin: 12vh auto;
   padding: 24px;
+}
+
+.login-shell .login {
+  width: 100%;
+  margin: 0;
+  padding: clamp(22px, 4vw, 32px);
+  border-color: rgba(214, 184, 108, 0.28);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.22);
 }
 
 .login h1 {
@@ -702,6 +738,23 @@ body.rtl .rules-table th:first-child {
     background: #f5f7fa;
   }
 
+  .login-shell {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    min-height: 100vh;
+    padding: 14px;
+  }
+
+  .login-visual {
+    min-height: auto;
+    padding: 22px;
+  }
+
+  .login-visual img {
+    width: min(178px, 58vw);
+    max-height: 270px;
+  }
+
   .topbar,
   .userbar,
   .match-head {
@@ -780,6 +833,11 @@ body.rtl .rules-table th:first-child {
 
   .login {
     margin: 18px auto;
+    padding: 18px;
+  }
+
+  .login-shell .login {
+    margin: 0;
     padding: 18px;
   }
 

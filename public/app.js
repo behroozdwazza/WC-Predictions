@@ -338,6 +338,7 @@ const timezones = [
 
 const trophyImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/FIFA%20World%20Cup%20Trophy%20%28Ank%20Kumar%2C%20Infosys%20Limited%29%2002.jpg?width=160";
 const logoImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/2026%20FIFA%20World%20Cup%20emblem%20%28with%20wordmark%29.svg?width=220";
+const loginHeroImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/2026%20FIFA%20World%20Cup%20emblem.svg?width=420";
 
 const flags = {
   Algeria: "dz",
@@ -545,22 +546,26 @@ function renderLogin() {
   applyLanguageDirection();
   const isSignup = state.authMode === "signup";
   app.innerHTML = `
-    <main class="login">
-      ${brandImages()}
-      ${languageSelector()}
-      <h1>${t("loginTitle")}</h1>
-      <p>${isSignup ? t("signupIntro") : t("loginIntro")}</p>
-      <div class="auth-tabs">
-        <button class="tab ${!isSignup ? "active" : ""}" data-auth-mode="login">${t("login")}</button>
-        <button class="tab ${isSignup ? "active" : ""}" data-auth-mode="signup">${t("signup")}</button>
-      </div>
-      <form id="auth-form">
-        <label>${t("username")}<input name="username" autocomplete="username" pattern="[a-z0-9_]{3,24}" required></label>
-        ${isSignup ? `<label>${t("screenName")}<input name="screenName" autocomplete="nickname" maxlength="40" required></label>` : ""}
-        <label>${t("password")}<input name="password" type="password" autocomplete="${isSignup ? "new-password" : "current-password"}" minlength="6" required></label>
-        <button>${isSignup ? t("createAccount") : t("login")}</button>
-        <div class="error" id="auth-error"></div>
-      </form>
+    <main class="login-shell">
+      <section class="login-visual">
+        <img src="${loginHeroImage}" alt="FIFA World Cup 2026 emblem" loading="eager">
+      </section>
+      <section class="login">
+        ${languageSelector()}
+        <h1>${t("loginTitle")}</h1>
+        <p>${isSignup ? t("signupIntro") : t("loginIntro")}</p>
+        <div class="auth-tabs">
+          <button class="tab ${!isSignup ? "active" : ""}" data-auth-mode="login">${t("login")}</button>
+          <button class="tab ${isSignup ? "active" : ""}" data-auth-mode="signup">${t("signup")}</button>
+        </div>
+        <form id="auth-form">
+          <label>${t("username")}<input name="username" autocomplete="username" pattern="[a-z0-9_]{3,24}" required></label>
+          ${isSignup ? `<label>${t("screenName")}<input name="screenName" autocomplete="nickname" maxlength="40" required></label>` : ""}
+          <label>${t("password")}<input name="password" type="password" autocomplete="${isSignup ? "new-password" : "current-password"}" minlength="6" required></label>
+          <button>${isSignup ? t("createAccount") : t("login")}</button>
+          <div class="error" id="auth-error"></div>
+        </form>
+      </section>
     </main>
   `;
   wireLanguageSelector();
