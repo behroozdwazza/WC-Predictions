@@ -609,6 +609,32 @@ async function handleApi(req, res, pathname) {
     return json(res, 200, publicState(db));
   }
 
+  if (req.method === "POST" && pathname === "/api/account") {
+    const body = await readBody(req);
+    const user = resolveUser(req, db);
+    if (!user || user.isAdmin) return json(res, 401, { error: "Please sign in with a player account." });
+    const player = db.players.find(item => item.id === user.id);
+    if (!player) return json(res, 404, { error: "User was not found." });
+
+    const screenName = String(body.screenName || "").trim().slice(0, 40);
+    const currentPassword = String(body.currentPassword || "");
+    const newPassword = String(body.newPassword || "");
+    if (!screenName) return json(res, 400, { error: "Please enter a screen name." });
+
+    player.screenName = screenName;
+    player.name = screenName;
+    if (newPassword) {
+      if (newPassword.length < 6) return json(res, 400, { error: "Password must be at least 6 characters." });
+      if (!verifyPassword(currentPassword, player.passwordHash)) return json(res, 401, { error: "Current password is incorrect." });
+      player.passwordHash = hashPassword(newPassword);
+      db.sessions = db.sessions.filter(item => item.playerId !== player.id);
+    }
+
+    const token = newPassword ? makeSession(db, player) : String(req.headers["x-auth-token"] || "");
+    await saveDb(db);
+    return json(res, 200, { token, user: { ...safePlayer(player), isAdmin: false }, state: publicState(db) });
+  }
+
   if (req.method === "POST" && pathname === "/api/admin/matches") {
     if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
     const body = await readBody(req);
