@@ -8,6 +8,7 @@ const state = {
   adminTab: "scores",
   day: "all",
   chartPlayerId: "",
+  accountSaved: false,
   timezone: localStorage.getItem("wc-timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   lang: localStorage.getItem("wc-lang") || "en"
 };
@@ -32,6 +33,14 @@ const translations = {
     administrator: "Administrator",
     playerAccount: "Player account",
     signOut: "Sign out",
+    account: "Account",
+    accountSettings: "Account Settings",
+    accountNotice: "Change the name shown in the ranking table. To change your password, enter your current password and a new password.",
+    currentPassword: "Current password",
+    confirmNewPassword: "Confirm new password",
+    updateAccount: "Update account",
+    accountUpdated: "Account updated.",
+    passwordMismatch: "New passwords do not match.",
     predictions: "Predictions",
     scoringRules: "Scoring Rules",
     funFacts: "Fun Facts",
@@ -181,6 +190,14 @@ const translations = {
     administrator: "مدیر",
     playerAccount: "حساب بازیکن",
     signOut: "خروج",
+    account: "حساب کاربری",
+    accountSettings: "تنظیمات حساب",
+    accountNotice: "نام نمایشی خود را در جدول رده‌بندی تغییر دهید. برای تغییر رمز عبور، رمز فعلی و رمز جدید را وارد کنید.",
+    currentPassword: "رمز عبور فعلی",
+    confirmNewPassword: "تکرار رمز عبور جدید",
+    updateAccount: "به‌روزرسانی حساب",
+    accountUpdated: "حساب به‌روزرسانی شد.",
+    passwordMismatch: "رمزهای عبور جدید یکسان نیستند.",
     predictions: "پیش‌بینی‌ها",
     scoringRules: "قوانین امتیازدهی",
     funFacts: "نکات جالب",
@@ -602,6 +619,7 @@ function render() {
   if (!state.user) return renderLogin();
   applyLanguageDirection();
   if (!state.user.isAdmin && state.tab === "admin") state.tab = "matches";
+  if (state.user.isAdmin && state.tab === "account") state.tab = "admin";
   app.innerHTML = `
     <main class="shell">
       <header class="topbar">
@@ -625,12 +643,14 @@ function render() {
             ${tabButton("fun", t("funFacts"))}
             ${tabButton("matchReports", t("matchReports"))}
             ${tabButton("rules", t("scoringRules"))}
+            ${!state.user.isAdmin ? tabButton("account", t("account")) : ""}
             ${state.user.isAdmin ? tabButton("admin", t("admin")) : ""}
           </nav>
           ${state.tab === "matches" ? renderMatches() : ""}
           ${state.tab === "fun" ? renderFunFactsPage() : ""}
           ${state.tab === "matchReports" ? renderMatchReportsPage() : ""}
           ${state.tab === "rules" ? renderRulesPage() : ""}
+          ${state.tab === "account" ? renderAccountPage() : ""}
           ${state.tab === "admin" ? renderAdmin() : ""}
         </div>
         <aside class="side">
@@ -642,6 +662,7 @@ function render() {
   `;
   wireCommon();
   if (state.tab === "matches") wireMatches();
+  if (state.tab === "account") wireAccount();
   if (state.tab === "admin") wireAdmin();
   if (state.tab === "matchReports") drawPredictionPieCharts();
 }
@@ -1200,6 +1221,24 @@ function renderRulesPage() {
   `;
 }
 
+function renderAccountPage() {
+  return `
+    <section class="panel account-panel">
+      <h2>${t("accountSettings")}</h2>
+      <div class="notice">${t("accountNotice")}</div>
+      <form id="account-form" class="account-form">
+        <label>${t("screenName")}<input name="screenName" value="${escapeHtml(state.user.name || "")}" maxlength="40" required></label>
+        <label>${t("currentPassword")}<input name="currentPassword" type="password" autocomplete="current-password"></label>
+        <label>${t("newPassword")}<input name="newPassword" type="password" autocomplete="new-password" minlength="6" placeholder="${t("keepPassword")}"></label>
+        <label>${t("confirmNewPassword")}<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6"></label>
+        <button>${t("updateAccount")}</button>
+        <div class="error wide" id="account-error"></div>
+        <div class="success wide" id="account-success">${state.accountSaved ? t("accountUpdated") : ""}</div>
+      </form>
+    </section>
+  `;
+}
+
 function renderAdmin() {
   return `
     <section class="panel">
@@ -1393,6 +1432,7 @@ function wireCommon() {
   document.querySelectorAll("[data-tab]").forEach(button => {
     button.addEventListener("click", () => {
       state.tab = button.dataset.tab;
+      if (state.tab !== "account") state.accountSaved = false;
       render();
     });
   });
@@ -1438,6 +1478,41 @@ function wireMatches() {
         error.textContent = err.message;
       }
     });
+  });
+}
+
+function wireAccount() {
+  document.querySelector("#account-form")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const error = document.querySelector("#account-error");
+    const success = document.querySelector("#account-success");
+    state.accountSaved = false;
+    error.textContent = "";
+    success.textContent = "";
+    if (form.elements.newPassword.value !== form.elements.confirmPassword.value) {
+      error.textContent = t("passwordMismatch");
+      return;
+    }
+    try {
+      const payload = await api("/api/account", {
+        method: "POST",
+        body: JSON.stringify({
+          screenName: form.elements.screenName.value,
+          currentPassword: form.elements.currentPassword.value,
+          newPassword: form.elements.newPassword.value
+        })
+      });
+      state.token = payload.token;
+      state.user = payload.user;
+      state.data = payload.state;
+      localStorage.setItem("wc-token", state.token);
+      localStorage.setItem("wc-user", JSON.stringify(state.user));
+      state.accountSaved = true;
+      render();
+    } catch (err) {
+      error.textContent = err.message;
+    }
   });
 }
 
