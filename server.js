@@ -107,8 +107,20 @@ function safePlayer(player) {
     username: player.username,
     screenName: player.screenName || player.name || player.username,
     name: player.screenName || player.name || player.username,
+    favoriteTeam: player.favoriteTeam || "",
+    avatarDataUrl: player.avatarDataUrl || "",
     createdAt: player.createdAt
   };
+}
+
+function cleanAvatarDataUrl(value) {
+  const avatar = String(value || "");
+  if (!avatar) return "";
+  if (avatar.length > 350_000) throw new Error("Profile picture is too large.");
+  if (!/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(avatar)) {
+    throw new Error("Profile picture must be a PNG, JPG, WEBP, or GIF image.");
+  }
+  return avatar;
 }
 
 function publicState(db) {
@@ -619,10 +631,15 @@ async function handleApi(req, res, pathname) {
     const screenName = String(body.screenName || "").trim().slice(0, 40);
     const currentPassword = String(body.currentPassword || "");
     const newPassword = String(body.newPassword || "");
+    const favoriteTeam = String(body.favoriteTeam || "").trim().slice(0, 60);
+    const avatarDataUrl = cleanAvatarDataUrl(body.avatarDataUrl);
     if (!screenName) return json(res, 400, { error: "Please enter a screen name." });
 
     player.screenName = screenName;
     player.name = screenName;
+    player.favoriteTeam = favoriteTeam;
+    if (avatarDataUrl) player.avatarDataUrl = avatarDataUrl;
+    else delete player.avatarDataUrl;
     if (newPassword) {
       if (newPassword.length < 6) return json(res, 400, { error: "Password must be at least 6 characters." });
       if (!verifyPassword(currentPassword, player.passwordHash)) return json(res, 401, { error: "Current password is incorrect." });
