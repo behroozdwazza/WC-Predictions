@@ -584,6 +584,21 @@ function playerAvatar(player, size = "small") {
   return `<span class="player-avatar ${size} initial-avatar">${initial}</span>`;
 }
 
+function rankingAvatar(player) {
+  return `
+    <span class="rank-avatar-wrap" tabindex="0" aria-label="${escapeHtml(player.name)}">
+      ${playerAvatar(player)}
+      <span class="avatar-popover">
+        ${playerAvatar(player, "large")}
+        <span>
+          <strong>${escapeHtml(player.name)}</strong>
+          <span>${t("favoriteTeam")}: ${escapeHtml(player.favoriteTeam || t("none"))}</span>
+        </span>
+      </span>
+    </span>
+  `;
+}
+
 function brandImages() {
   return `
     <div class="brand-media" aria-label="FIFA World Cup 2026">
@@ -1064,7 +1079,7 @@ function renderRanking() {
         ${state.data.standings.map((player, index) => `
           <div class="rank-row">
             <span class="rank">${index + 1}</span>
-            ${playerAvatar(player)}
+            ${rankingAvatar(player)}
             <span>${escapeHtml(player.name)}<br><span class="meta">${player.predicted} ${t("predictionCount")}</span></span>
             <span class="points">${player.points}</span>
           </div>

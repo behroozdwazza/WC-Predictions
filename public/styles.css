@@ -394,6 +394,70 @@ label {
   object-fit: cover;
 }
 
+.rank-avatar-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  outline: none;
+}
+
+.rank-avatar-wrap:focus-visible .player-avatar {
+  box-shadow: 0 0 0 3px rgba(37, 75, 177, 0.25);
+}
+
+.avatar-popover {
+  position: absolute;
+  left: 42px;
+  top: 50%;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: auto minmax(140px, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-width: 250px;
+  padding: 12px;
+  border: 1px solid rgba(37, 75, 177, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 42px rgba(18, 32, 48, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(-6px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.avatar-popover span:last-child {
+  display: grid;
+  gap: 4px;
+}
+
+.avatar-popover strong {
+  color: var(--ink);
+}
+
+.avatar-popover span span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.rank-avatar-wrap:hover .avatar-popover,
+.rank-avatar-wrap:focus .avatar-popover {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+body.rtl .avatar-popover {
+  right: 42px;
+  left: auto;
+  transform: translateY(-50%) translateX(6px);
+}
+
+body.rtl .rank-avatar-wrap:hover .avatar-popover,
+body.rtl .rank-avatar-wrap:focus .avatar-popover {
+  transform: translateY(-50%) translateX(0);
+}
+
 .match-list {
   display: grid;
   gap: 12px;
