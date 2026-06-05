@@ -41,6 +41,12 @@ const translations = {
     updateAccount: "Update account",
     accountUpdated: "Account updated.",
     passwordMismatch: "New passwords do not match.",
+    favoriteTeam: "Favorite team",
+    avatar: "Profile picture",
+    avatarNotice: "Upload a photo, or leave it blank to use your favorite team's flag.",
+    uploadPhoto: "Upload photo",
+    useTeamAvatar: "Use team avatar",
+    photoTooLarge: "Please choose a smaller image.",
     predictions: "Predictions",
     scoringRules: "Scoring Rules",
     funFacts: "Fun Facts",
@@ -198,6 +204,12 @@ const translations = {
     updateAccount: "به‌روزرسانی حساب",
     accountUpdated: "حساب به‌روزرسانی شد.",
     passwordMismatch: "رمزهای عبور جدید یکسان نیستند.",
+    favoriteTeam: "تیم مورد علاقه",
+    avatar: "تصویر پروفایل",
+    avatarNotice: "یک عکس بارگذاری کنید، یا برای استفاده از پرچم تیم مورد علاقه این قسمت را خالی بگذارید.",
+    uploadPhoto: "بارگذاری عکس",
+    useTeamAvatar: "استفاده از آواتار تیم",
+    photoTooLarge: "لطفاً یک تصویر کوچک‌تر انتخاب کنید.",
     predictions: "پیش‌بینی‌ها",
     scoringRules: "قوانین امتیازدهی",
     funFacts: "نکات جالب",
@@ -548,6 +560,28 @@ function teamLabel(team) {
   const code = flags[team] || "";
   const flag = code ? `<img class="flag" src="https://flagcdn.com/w40/${code}.png" alt="" loading="lazy">` : "";
   return `<span class="team-name">${flag}<span>${escapeHtml(team)}</span></span>`;
+}
+
+function favoriteTeamOptions(selected = "") {
+  return `
+    <option value="">${t("choose")}</option>
+    ${Object.keys(flags).sort((a, b) => a.localeCompare(b)).map(team => (
+      `<option value="${escapeHtml(team)}" ${team === selected ? "selected" : ""}>${escapeHtml(team)}</option>`
+    )).join("")}
+  `;
+}
+
+function playerAvatar(player, size = "small") {
+  const name = player?.name || player?.screenName || player?.username || "";
+  const initial = escapeHtml(String(name).trim().charAt(0).toUpperCase() || "?");
+  if (player?.avatarDataUrl) {
+    return `<span class="player-avatar ${size}"><img src="${player.avatarDataUrl}" alt="" loading="lazy"></span>`;
+  }
+  const code = flags[player?.favoriteTeam] || "";
+  if (code) {
+    return `<span class="player-avatar ${size} team-avatar"><img src="https://flagcdn.com/w80/${code}.png" alt="" loading="lazy"></span>`;
+  }
+  return `<span class="player-avatar ${size} initial-avatar">${initial}</span>`;
 }
 
 function brandImages() {
@@ -1030,6 +1064,7 @@ function renderRanking() {
         ${state.data.standings.map((player, index) => `
           <div class="rank-row">
             <span class="rank">${index + 1}</span>
+            ${playerAvatar(player)}
             <span>${escapeHtml(player.name)}<br><span class="meta">${player.predicted} ${t("predictionCount")}</span></span>
             <span class="points">${player.points}</span>
           </div>
@@ -1222,12 +1257,25 @@ function renderRulesPage() {
 }
 
 function renderAccountPage() {
+  const accountUser = state.user || {};
   return `
     <section class="panel account-panel">
       <h2>${t("accountSettings")}</h2>
       <div class="notice">${t("accountNotice")}</div>
       <form id="account-form" class="account-form">
-        <label>${t("screenName")}<input name="screenName" value="${escapeHtml(state.user.name || "")}" maxlength="40" required></label>
+        <div class="avatar-editor wide">
+          <div id="avatar-preview">${playerAvatar(accountUser, "large")}</div>
+          <div class="avatar-fields">
+            <label>${t("favoriteTeam")}
+              <select name="favoriteTeam" id="favorite-team-select">${favoriteTeamOptions(accountUser.favoriteTeam || "")}</select>
+            </label>
+            <label>${t("uploadPhoto")}<input name="avatarFile" id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+            <input type="hidden" name="avatarDataUrl" id="avatar-data-url" value="${escapeHtml(accountUser.avatarDataUrl || "")}">
+            <button type="button" class="ghost" id="use-team-avatar">${t("useTeamAvatar")}</button>
+            <span class="meta">${t("avatarNotice")}</span>
+          </div>
+        </div>
+        <label>${t("screenName")}<input name="screenName" value="${escapeHtml(accountUser.name || "")}" maxlength="40" required></label>
         <label>${t("currentPassword")}<input name="currentPassword" type="password" autocomplete="current-password"></label>
         <label>${t("newPassword")}<input name="newPassword" type="password" autocomplete="new-password" minlength="6" placeholder="${t("keepPassword")}"></label>
         <label>${t("confirmNewPassword")}<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6"></label>
@@ -1481,10 +1529,67 @@ function wireMatches() {
   });
 }
 
+function updateAccountAvatarPreview(form) {
+  const preview = document.querySelector("#avatar-preview");
+  if (!preview) return;
+  preview.innerHTML = playerAvatar({
+    name: form.elements.screenName.value || state.user?.name || "",
+    favoriteTeam: form.elements.favoriteTeam.value,
+    avatarDataUrl: form.elements.avatarDataUrl.value
+  }, "large");
+}
+
+function resizeAvatarFile(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) return resolve("");
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error(t("photoTooLarge")));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error(t("photoTooLarge")));
+      image.onload = () => {
+        const maxSize = 240;
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.84));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function wireAccount() {
-  document.querySelector("#account-form")?.addEventListener("submit", async event => {
+  const form = document.querySelector("#account-form");
+  if (!form) return;
+  form.elements.favoriteTeam.addEventListener("change", () => updateAccountAvatarPreview(form));
+  form.elements.screenName.addEventListener("input", () => updateAccountAvatarPreview(form));
+  form.elements.avatarFile.addEventListener("change", async () => {
+    const error = document.querySelector("#account-error");
+    error.textContent = "";
+    try {
+      const file = form.elements.avatarFile.files[0];
+      if (file && file.size > 5_000_000) throw new Error(t("photoTooLarge"));
+      form.elements.avatarDataUrl.value = await resizeAvatarFile(file);
+      updateAccountAvatarPreview(form);
+    } catch (err) {
+      form.elements.avatarFile.value = "";
+      error.textContent = err.message;
+    }
+  });
+  document.querySelector("#use-team-avatar")?.addEventListener("click", () => {
+    form.elements.avatarFile.value = "";
+    form.elements.avatarDataUrl.value = "";
+    updateAccountAvatarPreview(form);
+  });
+  form.addEventListener("submit", async event => {
     event.preventDefault();
-    const form = event.currentTarget;
     const error = document.querySelector("#account-error");
     const success = document.querySelector("#account-success");
     state.accountSaved = false;
@@ -1500,7 +1605,9 @@ function wireAccount() {
         body: JSON.stringify({
           screenName: form.elements.screenName.value,
           currentPassword: form.elements.currentPassword.value,
-          newPassword: form.elements.newPassword.value
+          newPassword: form.elements.newPassword.value,
+          favoriteTeam: form.elements.favoriteTeam.value,
+          avatarDataUrl: form.elements.avatarDataUrl.value
         })
       });
       state.token = payload.token;

@@ -336,9 +336,62 @@ label {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.account-form button,
+.account-form > button,
 .account-form .wide {
   grid-column: 1 / -1;
+}
+
+.avatar-editor {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--soft), #ffffff);
+}
+
+.avatar-fields {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.avatar-fields .meta {
+  grid-column: 1 / -1;
+}
+
+.player-avatar {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--blue-soft);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--mascot-blue);
+  font-weight: 850;
+  flex: 0 0 auto;
+}
+
+.player-avatar.large {
+  width: 84px;
+  height: 84px;
+  font-size: 28px;
+}
+
+.player-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.team-avatar img {
+  object-fit: cover;
 }
 
 .match-list {
@@ -501,7 +554,7 @@ body.rtl .scoreline {
 
 .rank-row {
   display: grid;
-  grid-template-columns: 34px 1fr auto;
+  grid-template-columns: 34px 34px 1fr auto;
   gap: 10px;
   align-items: center;
   padding: 10px;
@@ -993,7 +1046,16 @@ body.rtl .rules-table th:first-child {
   }
 
   .rank-row {
-    grid-template-columns: 28px 1fr auto;
+    grid-template-columns: 28px 32px 1fr auto;
+  }
+
+  .avatar-editor,
+  .avatar-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar-editor {
+    justify-items: center;
   }
 
   .pie-report {
