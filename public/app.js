@@ -428,7 +428,7 @@ function stageLabel(stage) {
 }
 
 function locale() {
-  return state.lang === "fa" ? "fa-IR-u-ca-gregory" : undefined;
+  return state.lang === "fa" ? "fa-IR-u-ca-persian" : undefined;
 }
 
 function applyLanguageDirection() {
