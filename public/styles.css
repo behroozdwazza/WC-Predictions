@@ -125,6 +125,18 @@ label {
   flex: 0 0 auto;
 }
 
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--mascot-red), var(--mascot-green) 52%, var(--mascot-blue));
+  font-weight: 900;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
 .brand-trophy {
   width: 38px;
   height: 46px;
@@ -233,19 +245,54 @@ label {
 .login-visual {
   min-height: min(760px, calc(100vh - 96px));
   display: grid;
+  align-content: center;
   place-items: center;
+  gap: 18px;
   padding: clamp(28px, 5vw, 64px);
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 8px;
   background: #000000;
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.34);
+  text-align: center;
 }
 
-.login-visual img {
-  width: min(300px, 70vw);
-  max-height: 72vh;
-  object-fit: contain;
-  filter: drop-shadow(0 18px 34px rgba(196, 151, 61, 0.24));
+.private-hero-mark {
+  width: min(230px, 58vw);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 10px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  background:
+    linear-gradient(135deg, rgba(211, 47, 47, 0.92), rgba(9, 140, 90, 0.92) 52%, rgba(37, 75, 177, 0.92));
+  box-shadow: 0 18px 34px rgba(196, 151, 61, 0.18);
+}
+
+.private-hero-mark span {
+  color: #ffffff;
+  font-size: clamp(56px, 10vw, 108px);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.login-visual h2 {
+  max-width: 460px;
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(24px, 4vw, 42px);
+  line-height: 1.1;
+}
+
+.login-visual p {
+  max-width: 520px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  line-height: 1.55;
+}
+
+.login-disclaimer {
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .login .brand-media {

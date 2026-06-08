@@ -19,6 +19,7 @@ const translations = {
     appTitle: "World Cup 2026 Predictions",
     loginTitle: "World Cup prediction contest",
     loginIntro: "Sign in with your player account. Admin credentials open the admin area.",
+    privateContestNotice: "Private prediction contest for friends. This site is not affiliated with FIFA, the FIFA World Cup, or any official tournament organizer.",
     signupIntro: "Create your player account once, then sign in each day to update predictions.",
     signupPending: "Your account was created and is waiting for admin approval. You can sign in after it is approved.",
     language: "Language",
@@ -186,6 +187,7 @@ const translations = {
     appTitle: "پیش‌بینی جام جهانی ۲۰۲۶",
     loginTitle: "مسابقه پیش‌بینی جام جهانی",
     loginIntro: "با حساب کاربری خود وارد شوید. حساب مدیر بخش مدیریت را نمایش می‌دهد.",
+    privateContestNotice: "این یک مسابقه خصوصی پیش‌بینی بین دوستان است و وابسته به فیفا، جام جهانی فیفا یا برگزارکنندگان رسمی مسابقات نیست.",
     signupIntro: "یک بار حساب کاربری بسازید و هر روز برای ثبت یا ویرایش پیش‌بینی‌ها وارد شوید.",
     signupPending: "حساب شما ساخته شد و منتظر تأیید مدیر است. پس از تأیید می‌توانید وارد شوید.",
     language: "زبان",
@@ -373,10 +375,6 @@ const timezones = [
   "Asia/Seoul",
   "Australia/Sydney"
 ];
-
-const trophyImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/FIFA%20World%20Cup%20Trophy%20%28Ank%20Kumar%2C%20Infosys%20Limited%29%2002.jpg?width=160";
-const logoImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/2026%20FIFA%20World%20Cup%20emblem%20%28with%20wordmark%29.svg?width=220";
-const loginHeroImage = "https://commons.wikimedia.org/wiki/Special:Redirect/file/2026%20FIFA%20World%20Cup%20emblem.svg?width=420";
 
 const flags = {
   Algeria: "dz",
@@ -610,9 +608,8 @@ function rankingAvatar(player) {
 
 function brandImages() {
   return `
-    <div class="brand-media" aria-label="FIFA World Cup 2026">
-      <img class="brand-trophy" src="${trophyImage}" alt="World Cup trophy" loading="lazy">
-      <img class="brand-logo" src="${logoImage}" alt="FIFA World Cup 2026 logo" loading="lazy">
+    <div class="brand-media" aria-label="World Cup 2026 prediction contest">
+      <span class="brand-mark" aria-hidden="true">26</span>
     </div>
   `;
 }
@@ -622,13 +619,18 @@ function renderLogin() {
   const isSignup = state.authMode === "signup";
   app.innerHTML = `
     <main class="login-shell">
-      <section class="login-visual">
-        <img src="${loginHeroImage}" alt="FIFA World Cup 2026 emblem" loading="eager">
+      <section class="login-visual" aria-label="Private World Cup prediction contest">
+        <div class="private-hero-mark" aria-hidden="true">
+          <span>26</span>
+        </div>
+        <h2>${t("appTitle")}</h2>
+        <p>${t("privateContestNotice")}</p>
       </section>
       <section class="login">
         ${languageSelector()}
         <h1>${t("loginTitle")}</h1>
         <p>${isSignup ? t("signupIntro") : t("loginIntro")}</p>
+        <div class="notice login-disclaimer">${t("privateContestNotice")}</div>
         <div class="auth-tabs">
           <button class="tab ${!isSignup ? "active" : ""}" data-auth-mode="login">${t("login")}</button>
           <button class="tab ${isSignup ? "active" : ""}" data-auth-mode="signup">${t("signup")}</button>
