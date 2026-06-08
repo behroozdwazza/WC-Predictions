@@ -9,6 +9,7 @@ const state = {
   adminTab: "scores",
   day: "all",
   chartPlayerId: "",
+  showPointsChart: false,
   accountSaved: false,
   timezone: localStorage.getItem("wc-timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   lang: localStorage.getItem("wc-lang") || "en"
@@ -140,6 +141,9 @@ const translations = {
     rankingChart: "Ranking chart",
     showRankChart: "Rank graph",
     rankChartTitle: "Ranking changes for {name}",
+    totalPointsChart: "Total points chart",
+    showTotalPointsChart: "Points chart",
+    pointsChartTitle: "Total points by player",
     noRankHistory: "No completed match days yet.",
     funFactsNotice: "After entering the final scores for a match day, generate a playful recap using OpenAI.",
     matchDay: "Match day",
@@ -308,6 +312,9 @@ const translations = {
     rankingChart: "نمودار رتبه",
     showRankChart: "نمودار رتبه",
     rankChartTitle: "تغییرات رتبه {name}",
+    totalPointsChart: "نمودار امتیاز کل",
+    showTotalPointsChart: "نمودار امتیاز",
+    pointsChartTitle: "امتیاز کل بازیکنان",
     noRankHistory: "هنوز روز بازی تمام‌شده‌ای وجود ندارد.",
     funFactsNotice: "پس از ثبت نتایج نهایی یک روز، با OpenAI یک گزارش کوتاه و سرگرم‌کننده بسازید.",
     matchDay: "روز بازی",
@@ -977,6 +984,87 @@ function drawRankChart() {
   });
 }
 
+function drawPointsBarChart() {
+  const canvas = document.querySelector("#points-chart");
+  const standings = state.data?.standings || [];
+  if (!canvas || !standings.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.clientWidth || 980;
+  const cssHeight = canvas.clientHeight || 520;
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+  const pad = { top: 58, right: 26, bottom: 132, left: 54 };
+  const plotW = cssWidth - pad.left - pad.right;
+  const plotH = cssHeight - pad.top - pad.bottom;
+  const maxPoints = Math.max(5, ...standings.map(player => Number(player.points) || 0));
+  const y = points => pad.top + plotH - (points / maxPoints) * plotH;
+
+  ctx.fillStyle = "#fac18e";
+  ctx.fillRect(0, 0, cssWidth, cssHeight);
+  ctx.fillStyle = "#cfe1a8";
+  ctx.fillRect(pad.left, pad.top, plotW, plotH);
+  ctx.strokeStyle = "#4d5d45";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(pad.left, pad.top, plotW, plotH);
+
+  ctx.strokeStyle = "rgba(70, 95, 70, 0.45)";
+  ctx.fillStyle = "#1c1c1c";
+  ctx.font = "13px Segoe UI, sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  const step = Math.max(1, Math.ceil(maxPoints / 8));
+  for (let value = 0; value <= maxPoints; value += step) {
+    const yy = y(value);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, yy);
+    ctx.lineTo(pad.left + plotW, yy);
+    ctx.stroke();
+    ctx.fillText(value, pad.left - 10, yy);
+  }
+
+  ctx.fillStyle = "#0f1115";
+  ctx.font = "700 24px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(t("pointsChartTitle"), cssWidth / 2, 18);
+
+  const slot = plotW / standings.length;
+  const barW = Math.min(54, Math.max(18, slot * 0.58));
+  standings.forEach((player, index) => {
+    const points = Number(player.points) || 0;
+    const x = pad.left + slot * index + slot / 2 - barW / 2;
+    const yy = y(points);
+    const height = pad.top + plotH - yy;
+    const gradient = ctx.createLinearGradient(0, yy, 0, pad.top + plotH);
+    gradient.addColorStop(0, "#3f7ebc");
+    gradient.addColorStop(1, "#245a92");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, yy, barW, height);
+    ctx.strokeStyle = "#2d5f91";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x, yy, barW, height);
+
+    ctx.fillStyle = "#0b0d10";
+    ctx.font = "700 13px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText(points, x + barW / 2, yy - 8);
+
+    ctx.save();
+    ctx.translate(x + barW / 2, pad.top + plotH + 18);
+    ctx.rotate(-Math.PI / 4);
+    ctx.font = "12px Segoe UI, sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillText(player.name, 0, 0);
+    ctx.restore();
+  });
+}
+
 function drawPredictionPieCharts() {
   document.querySelectorAll(".prediction-pie").forEach(canvas => {
     const reportId = canvas.id.replace(/^pie-/, "");
@@ -1354,7 +1442,11 @@ function renderUserAdmin() {
   return `
     <section class="panel" style="margin-top:16px">
       <h2>${t("users")}</h2>
+      <div class="chart-actions">
+        <button type="button" class="secondary" id="toggle-points-chart">${t("showTotalPointsChart")}</button>
+      </div>
       ${players.length ? players.map(renderUserForm).join("") : `<div class="empty">${t("noPlayers")}</div>`}
+      ${renderPointsChartPanel()}
       ${renderRankChartPanel()}
     </section>
   `;
@@ -1452,6 +1544,16 @@ function renderRankChartPanel() {
     <section class="rank-chart-panel">
       <h3>${t("rankChartTitle", { name: escapeHtml(player.name) })}</h3>
       ${history.length ? `<canvas id="rank-chart" width="980" height="460"></canvas>` : `<div class="empty">${t("noRankHistory")}</div>`}
+    </section>
+  `;
+}
+
+function renderPointsChartPanel() {
+  if (!state.showPointsChart) return "";
+  return `
+    <section class="rank-chart-panel points-chart-panel">
+      <h3>${t("pointsChartTitle")}</h3>
+      ${state.data.standings.length ? `<canvas id="points-chart" width="980" height="520"></canvas>` : `<div class="empty">${t("noPlayers")}</div>`}
     </section>
   `;
 }
@@ -1670,6 +1772,11 @@ function wireAdmin() {
     });
   });
 
+  document.querySelector("#toggle-points-chart")?.addEventListener("click", () => {
+    state.showPointsChart = !state.showPointsChart;
+    render();
+  });
+
   document.querySelectorAll(".delete-report").forEach(button => {
     button.addEventListener("click", async () => {
       if (!confirm(t("deleteReportConfirm"))) return;
@@ -1886,6 +1993,7 @@ function wireAdmin() {
   });
 
   drawRankChart();
+  drawPointsBarChart();
 }
 
 load();
