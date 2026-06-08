@@ -4,6 +4,7 @@ const state = {
   user: JSON.parse(localStorage.getItem("wc-user") || "null"),
   token: localStorage.getItem("wc-token") || "",
   authMode: "login",
+  authNotice: "",
   tab: "matches",
   adminTab: "scores",
   day: "all",
@@ -19,6 +20,7 @@ const translations = {
     loginTitle: "World Cup prediction contest",
     loginIntro: "Sign in with your player account. Admin credentials open the admin area.",
     signupIntro: "Create your player account once, then sign in each day to update predictions.",
+    signupPending: "Your account was created and is waiting for admin approval. You can sign in after it is approved.",
     language: "Language",
     english: "English",
     farsi: "Farsi",
@@ -162,6 +164,9 @@ const translations = {
     newPassword: "New password",
     keepPassword: "Leave blank to keep current",
     saveUser: "Save user",
+    approveUser: "Approve user",
+    pendingApproval: "Pending approval",
+    approvedUser: "Approved",
     delete: "Delete",
     none: "None",
     saveResult: "Save result",
@@ -182,6 +187,7 @@ const translations = {
     loginTitle: "مسابقه پیش‌بینی جام جهانی",
     loginIntro: "با حساب کاربری خود وارد شوید. حساب مدیر بخش مدیریت را نمایش می‌دهد.",
     signupIntro: "یک بار حساب کاربری بسازید و هر روز برای ثبت یا ویرایش پیش‌بینی‌ها وارد شوید.",
+    signupPending: "حساب شما ساخته شد و منتظر تأیید مدیر است. پس از تأیید می‌توانید وارد شوید.",
     language: "زبان",
     english: "انگلیسی",
     farsi: "فارسی",
@@ -325,6 +331,9 @@ const translations = {
     newPassword: "رمز عبور جدید",
     keepPassword: "برای حفظ رمز فعلی خالی بگذارید",
     saveUser: "ذخیره کاربر",
+    approveUser: "تأیید کاربر",
+    pendingApproval: "در انتظار تأیید",
+    approvedUser: "تأیید شده",
     delete: "حذف",
     none: "هیچ‌کدام",
     saveResult: "ذخیره نتیجه",
@@ -630,6 +639,7 @@ function renderLogin() {
           <label>${t("password")}<input name="password" type="password" autocomplete="${isSignup ? "new-password" : "current-password"}" minlength="6" required></label>
           <button>${isSignup ? t("createAccount") : t("login")}</button>
           <div class="error" id="auth-error"></div>
+          <div class="success" id="auth-success">${state.authNotice ? t(state.authNotice) : ""}</div>
         </form>
       </section>
     </main>
@@ -638,18 +648,27 @@ function renderLogin() {
   document.querySelectorAll("[data-auth-mode]").forEach(button => {
     button.addEventListener("click", () => {
       state.authMode = button.dataset.authMode;
+      state.authNotice = "";
       renderLogin();
     });
   });
   document.querySelector("#auth-form").addEventListener("submit", async event => {
     event.preventDefault();
     const error = document.querySelector("#auth-error");
+    state.authNotice = "";
     error.textContent = "";
     try {
       const payload = await api(`/api/auth/${state.authMode}`, {
         method: "POST",
         body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))
       });
+      if (payload.pending) {
+        state.authMode = "login";
+        state.authNotice = "signupPending";
+        state.data = payload.state;
+        renderLogin();
+        return;
+      }
       state.token = payload.token;
       state.user = payload.user;
       state.data = payload.state;
@@ -1329,10 +1348,11 @@ function adminTabButton(tab, label) {
 }
 
 function renderUserAdmin() {
+  const players = [...state.data.players].sort((a, b) => Number(b.approved === false) - Number(a.approved === false) || a.name.localeCompare(b.name));
   return `
     <section class="panel" style="margin-top:16px">
       <h2>${t("users")}</h2>
-      ${state.data.players.length ? state.data.players.map(renderUserForm).join("") : `<div class="empty">${t("noPlayers")}</div>`}
+      ${players.length ? players.map(renderUserForm).join("") : `<div class="empty">${t("noPlayers")}</div>`}
       ${renderRankChartPanel()}
     </section>
   `;
@@ -1451,10 +1471,12 @@ function renderFixtureEditor() {
 function renderUserForm(player) {
   return `
     <form class="user-form" data-player-id="${player.id}">
+      <div><strong>${player.approved === false ? t("pendingApproval") : t("approvedUser")}</strong><br><span class="pill ${player.approved === false ? "pending" : "done"}">${player.approved === false ? t("pendingApproval") : t("approvedUser")}</span></div>
       <label>${t("username")}<input name="username" value="${escapeHtml(player.username || "")}" required></label>
       <label>${t("screenName")}<input name="screenName" value="${escapeHtml(player.name || "")}" required></label>
       <label>${t("newPassword")}<input name="password" type="password" placeholder="${t("keepPassword")}"></label>
       <button>${t("saveUser")}</button>
+      ${player.approved === false ? `<button type="button" class="secondary approve-user">${t("approveUser")}</button>` : ""}
       <button type="button" class="ghost rank-chart-button">${t("showRankChart")}</button>
       <button type="button" class="ghost delete-user">${t("delete")}</button>
       <div class="error wide"></div>
@@ -1704,6 +1726,19 @@ function wireAdmin() {
       error.textContent = "";
       try {
         state.data = await api("/api/admin/users/delete", {
+          method: "POST",
+          body: JSON.stringify({ playerId: form.dataset.playerId })
+        });
+        render();
+      } catch (err) {
+        error.textContent = err.message;
+      }
+    });
+    form.querySelector(".approve-user")?.addEventListener("click", async () => {
+      const error = form.querySelector(".error");
+      error.textContent = "";
+      try {
+        state.data = await api("/api/admin/users/approve", {
           method: "POST",
           body: JSON.stringify({ playerId: form.dataset.playerId })
         });

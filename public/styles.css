@@ -567,6 +567,11 @@ body.rtl .scoreline {
   background: var(--green-soft);
 }
 
+.pill.pending {
+  color: #8a5b00;
+  background: #fff2c2;
+}
+
 .prediction-form {
   grid-template-columns: 1fr 1fr minmax(160px, 1fr) auto;
   align-items: end;
@@ -850,7 +855,7 @@ body.rtl .rules-table th:first-child {
 }
 
 .user-form {
-  grid-template-columns: minmax(120px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) auto auto auto;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) auto auto auto auto;
   align-items: end;
   padding: 12px 0;
   border-top: 1px solid var(--line);
