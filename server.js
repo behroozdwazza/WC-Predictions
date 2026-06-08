@@ -109,8 +109,13 @@ function safePlayer(player) {
     name: player.screenName || player.name || player.username,
     favoriteTeam: player.favoriteTeam || "",
     avatarDataUrl: player.avatarDataUrl || "",
+    approved: player.approved !== false,
     createdAt: player.createdAt
   };
+}
+
+function isApprovedPlayer(player) {
+  return player.approved !== false;
 }
 
 function cleanAvatarDataUrl(value) {
@@ -123,12 +128,13 @@ function cleanAvatarDataUrl(value) {
   return avatar;
 }
 
-function publicState(db) {
+function publicState(db, options = {}) {
   const latest = latestPredictions(db.predictions);
   const standings = calculateStandings(db, db.matches);
+  const players = options.includePending ? db.players : db.players.filter(isApprovedPlayer);
 
   return {
-    players: db.players.map(safePlayer),
+    players: players.map(safePlayer),
     matches: db.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
     predictions: Object.fromEntries(latest),
     reports: db.reports.sort((a, b) => b.date.localeCompare(a.date) || new Date(b.createdAt) - new Date(a.createdAt)),
@@ -139,9 +145,13 @@ function publicState(db) {
   };
 }
 
+function adminState(db) {
+  return publicState(db, { includePending: true });
+}
+
 function calculateStandings(db, matches) {
   const latest = latestPredictions(db.predictions);
-  return db.players.map(player => {
+  return db.players.filter(isApprovedPlayer).map(player => {
     const rows = matches.map(match => {
       const prediction = latest.get(`${player.id}:${match.id}`) || null;
       return {
@@ -279,6 +289,7 @@ function resolveUser(req, db) {
   if (!session) return null;
   if (session.isAdmin) return { id: "admin", username: ADMIN_USERNAME, screenName: "Admin", name: "Admin", isAdmin: true };
   const player = db.players.find(item => item.id === session.playerId);
+  if (player && !isApprovedPlayer(player)) return null;
   return player ? { ...safePlayer(player), isAdmin: false } : null;
 }
 
@@ -338,7 +349,8 @@ function buildFunFactsContext(db, date) {
   const afterRanks = rankMap(after);
   const latest = latestPredictions(db.predictions);
 
-  const playerSummaries = db.players.map(player => {
+  const approvedPlayers = db.players.filter(isApprovedPlayer);
+  const playerSummaries = approvedPlayers.map(player => {
     const safe = safePlayer(player);
     const beforeStanding = before.find(item => item.id === player.id);
     const afterStanding = after.find(item => item.id === player.id);
@@ -352,7 +364,7 @@ function buildFunFactsContext(db, date) {
       name: safe.name,
       beforeRank: beforeRanks.get(player.id) || null,
       afterRank: afterRanks.get(player.id) || null,
-      rankChange: (beforeRanks.get(player.id) || db.players.length + 1) - (afterRanks.get(player.id) || db.players.length + 1),
+      rankChange: (beforeRanks.get(player.id) || approvedPlayers.length + 1) - (afterRanks.get(player.id) || approvedPlayers.length + 1),
       beforePoints: beforeStanding?.points || 0,
       afterPoints: afterStanding?.points || 0,
       dayPoints: roundPoints((afterStanding?.points || 0) - (beforeStanding?.points || 0)),
@@ -366,7 +378,7 @@ function buildFunFactsContext(db, date) {
 
   const oddPredictions = [];
   for (const match of dayMatches) {
-    const predictions = db.players.map(player => {
+    const predictions = approvedPlayers.map(player => {
       const prediction = latest.get(`${player.id}:${match.id}`) || null;
       if (!prediction) return null;
       return { player, prediction, winner: predictionWinner(prediction), points: scorePrediction(match, prediction) };
@@ -487,7 +499,8 @@ function buildPreMatchReport(db, matchId) {
   if (Date.now() < new Date(match.kickoff).getTime()) throw new Error("Prediction window is still open for this match.");
 
   const latest = latestPredictions(db.predictions);
-  const rows = db.players.map(player => {
+  const approvedPlayers = db.players.filter(isApprovedPlayer);
+  const rows = approvedPlayers.map(player => {
     const prediction = latest.get(`${player.id}:${match.id}`) || null;
     if (!prediction) return null;
     return {
@@ -498,7 +511,7 @@ function buildPreMatchReport(db, matchId) {
     };
   }).filter(Boolean);
 
-  const totalPlayers = db.players.length;
+  const totalPlayers = approvedPlayers.length;
   const totalPredictions = rows.length;
   const outcomeCounts = { home: 0, draw: 0, away: 0 };
   const scoreCounts = new Map();
@@ -550,7 +563,7 @@ async function handleApi(req, res, pathname) {
 
   if (req.method === "GET" && pathname === "/api/me") {
     const user = resolveUser(req, db);
-    return json(res, 200, { user, state: publicState(db) });
+    return json(res, 200, { user, state: user?.isAdmin ? adminState(db) : publicState(db) });
   }
 
   if (req.method === "POST" && pathname === "/api/auth/signup") {
@@ -570,12 +583,12 @@ async function handleApi(req, res, pathname) {
       screenName,
       name: screenName,
       passwordHash: hashPassword(password),
+      approved: false,
       createdAt: new Date().toISOString()
     };
     db.players.push(player);
-    const token = makeSession(db, player);
     await saveDb(db);
-    return json(res, 200, { token, user: { ...safePlayer(player), isAdmin: false }, state: publicState(db) });
+    return json(res, 202, { pending: true, state: publicState(db) });
   }
 
   if (req.method === "POST" && pathname === "/api/auth/login") {
@@ -585,10 +598,11 @@ async function handleApi(req, res, pathname) {
     if (username === usernameKey(ADMIN_USERNAME) && password === ADMIN_PASSWORD) {
       const token = makeSession(db, { id: "admin", isAdmin: true });
       await saveDb(db);
-      return json(res, 200, { token, user: { id: "admin", username: ADMIN_USERNAME, screenName: "Admin", name: "Admin", isAdmin: true }, state: publicState(db) });
+      return json(res, 200, { token, user: { id: "admin", username: ADMIN_USERNAME, screenName: "Admin", name: "Admin", isAdmin: true }, state: adminState(db) });
     }
     const player = db.players.find(item => usernameKey(item.username) === username);
     if (!player || !verifyPassword(password, player.passwordHash)) return json(res, 401, { error: "Username or password is incorrect." });
+    if (!isApprovedPlayer(player)) return json(res, 403, { error: "Your account is waiting for admin approval." });
     const token = makeSession(db, player);
     await saveDb(db);
     return json(res, 200, { token, user: { ...safePlayer(player), isAdmin: false }, state: publicState(db) });
@@ -674,7 +688,7 @@ async function handleApi(req, res, pathname) {
     if (index >= 0) db.matches[index] = { ...db.matches[index], ...match };
     else db.matches.push(match);
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/matches/delete") {
@@ -686,7 +700,7 @@ async function handleApi(req, res, pathname) {
     db.predictions = db.predictions.filter(item => item.matchId !== match.id);
     db.preMatchReports = db.preMatchReports.filter(item => item.matchId !== match.id);
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/fun-facts") {
@@ -699,7 +713,7 @@ async function handleApi(req, res, pathname) {
       db.reports = db.reports.filter(item => item.date !== date);
       db.reports.push(report);
       await saveDb(db);
-      return json(res, 200, publicState(db));
+      return json(res, 200, adminState(db));
     } catch (error) {
       return json(res, 502, { error: error.message });
     }
@@ -714,7 +728,7 @@ async function handleApi(req, res, pathname) {
     db.reports = db.reports.filter(item => item.id !== reportId && item.date !== reportDate);
     if (db.reports.length === beforeCount) return json(res, 404, { error: "Fun facts report was not found." });
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/pre-match-report") {
@@ -725,7 +739,7 @@ async function handleApi(req, res, pathname) {
       db.preMatchReports = db.preMatchReports.filter(item => item.matchId !== report.matchId);
       db.preMatchReports.push(report);
       await saveDb(db);
-      return json(res, 200, publicState(db));
+      return json(res, 200, adminState(db));
     } catch (error) {
       return json(res, 400, { error: error.message });
     }
@@ -739,7 +753,7 @@ async function handleApi(req, res, pathname) {
     db.preMatchReports = db.preMatchReports.filter(item => item.id !== reportId);
     if (db.preMatchReports.length === beforeCount) return json(res, 404, { error: "Pre-match report was not found." });
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/results") {
@@ -755,7 +769,7 @@ async function handleApi(req, res, pathname) {
       return json(res, 400, { error: "Choose the penalty winner for a knockout draw." });
     }
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/results/clear") {
@@ -768,7 +782,7 @@ async function handleApi(req, res, pathname) {
     delete match.penaltyWinner;
     match.status = "scheduled";
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/import") {
@@ -789,7 +803,7 @@ async function handleApi(req, res, pathname) {
     }));
     db.preMatchReports = [];
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/fixture") {
@@ -807,7 +821,7 @@ async function handleApi(req, res, pathname) {
     }
 
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/users") {
@@ -828,13 +842,24 @@ async function handleApi(req, res, pathname) {
     player.username = username;
     player.screenName = screenName;
     player.name = screenName;
+    if (body.approved === true || body.approved === "true") player.approved = true;
     if (password) {
       if (password.length < 6) return json(res, 400, { error: "Password must be at least 6 characters." });
       player.passwordHash = hashPassword(password);
       db.sessions = db.sessions.filter(item => item.playerId !== player.id);
     }
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
+  }
+
+  if (req.method === "POST" && pathname === "/api/admin/users/approve") {
+    if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
+    const body = await readBody(req);
+    const player = db.players.find(item => item.id === body.playerId);
+    if (!player) return json(res, 404, { error: "User was not found." });
+    player.approved = true;
+    await saveDb(db);
+    return json(res, 200, adminState(db));
   }
 
   if (req.method === "POST" && pathname === "/api/admin/users/delete") {
@@ -846,7 +871,7 @@ async function handleApi(req, res, pathname) {
     db.predictions = db.predictions.filter(item => item.playerId !== player.id);
     db.sessions = db.sessions.filter(item => item.playerId !== player.id);
     await saveDb(db);
-    return json(res, 200, publicState(db));
+    return json(res, 200, adminState(db));
   }
 
   return json(res, 404, { error: "Not found." });
