@@ -13,6 +13,8 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "worldcup-admin";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.1";
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const RESET_FROM_EMAIL = process.env.RESET_FROM_EMAIL || "World Cup Predictions <onboarding@resend.dev>";
 
 const STAGE_POINTS = {
   round32: { exact: 15, diff: 11, winner: 7, penWinnerWhenActualInPlay: 3, penExact: 15, penDrawWinner: 9, penExactWrongWinner: 11, penDrawWrongWinner: 6, liveWinner: 3 },
@@ -45,6 +47,7 @@ async function loadDb() {
       matches: seedMatches,
       predictions: [],
       sessions: [],
+      passwordResets: [],
       reports: [],
       preMatchReports: [],
       settings: {}
@@ -62,6 +65,7 @@ function normalizeDb(db) {
     matches,
     predictions: Array.isArray(db.predictions) ? db.predictions : [],
     sessions: Array.isArray(db.sessions) ? db.sessions : [],
+    passwordResets: Array.isArray(db.passwordResets) ? db.passwordResets : [],
     reports: Array.isArray(db.reports) ? db.reports : [],
     preMatchReports: Array.isArray(db.preMatchReports) ? db.preMatchReports : [],
     settings: db.settings || {}
@@ -101,8 +105,8 @@ function id(prefix) {
   return `${prefix}_${crypto.randomBytes(8).toString("hex")}`;
 }
 
-function safePlayer(player) {
-  return {
+function safePlayer(player, options = {}) {
+  const safe = {
     id: player.id,
     username: player.username,
     screenName: player.screenName || player.name || player.username,
@@ -112,6 +116,8 @@ function safePlayer(player) {
     approved: player.approved !== false,
     createdAt: player.createdAt
   };
+  if (options.includePrivate) safe.email = player.email || "";
+  return safe;
 }
 
 function isApprovedPlayer(player) {
@@ -134,7 +140,7 @@ function publicState(db, options = {}) {
   const players = options.includePending ? db.players : db.players.filter(isApprovedPlayer);
 
   return {
-    players: players.map(safePlayer),
+    players: players.map(player => safePlayer(player, { includePrivate: options.includePrivate })),
     matches: db.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
     predictions: Object.fromEntries(latest),
     reports: db.reports.sort((a, b) => b.date.localeCompare(a.date) || new Date(b.createdAt) - new Date(a.createdAt)),
@@ -146,7 +152,7 @@ function publicState(db, options = {}) {
 }
 
 function adminState(db) {
-  return publicState(db, { includePending: true });
+  return publicState(db, { includePending: true, includePrivate: true });
 }
 
 function calculateStandings(db, matches) {
@@ -259,6 +265,16 @@ function validateUsername(username) {
   return /^[a-z0-9_]{3,24}$/.test(username);
 }
 
+function cleanEmail(value, required = false) {
+  const email = String(value || "").trim().toLowerCase().slice(0, 254);
+  if (!email) {
+    if (required) throw new Error("Please enter an email address.");
+    return "";
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Please enter a valid email address.");
+  return email;
+}
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   const hash = crypto.pbkdf2Sync(String(password), salt, 120000, 32, "sha256").toString("hex");
   return `${salt}:${hash}`;
@@ -283,6 +299,27 @@ function makeSession(db, user) {
   return session.token;
 }
 
+async function sendPasswordResetEmail(to, code) {
+  if (!RESEND_API_KEY) throw new Error("Password reset email is not configured.");
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: RESET_FROM_EMAIL,
+      to: [to],
+      subject: "World Cup Predictions password reset",
+      text: `Your World Cup Predictions password reset code is ${code}.\n\nThis code expires in 15 minutes. If you did not request it, you can ignore this email.`
+    })
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Email request failed: ${response.status} ${text.slice(0, 200)}`);
+  }
+}
+
 function resolveUser(req, db) {
   const token = String(req.headers["x-auth-token"] || "");
   const session = db.sessions.find(item => item.token === token);
@@ -290,7 +327,7 @@ function resolveUser(req, db) {
   if (session.isAdmin) return { id: "admin", username: ADMIN_USERNAME, screenName: "Admin", name: "Admin", isAdmin: true };
   const player = db.players.find(item => item.id === session.playerId);
   if (player && !isApprovedPlayer(player)) return null;
-  return player ? { ...safePlayer(player), isAdmin: false } : null;
+  return player ? { ...safePlayer(player, { includePrivate: true }), isAdmin: false } : null;
 }
 
 function requireAdmin(req, db) {
@@ -571,6 +608,12 @@ async function handleApi(req, res, pathname) {
     const username = usernameKey(body.username);
     const password = String(body.password || "");
     const screenName = String(body.screenName || "").trim().slice(0, 40);
+    let email = "";
+    try {
+      email = cleanEmail(body.email, true);
+    } catch (error) {
+      return json(res, 400, { error: error.message });
+    }
     if (!validateUsername(username)) return json(res, 400, { error: "Use 3-24 lowercase letters, numbers, or underscores for the username." });
     if (password.length < 6) return json(res, 400, { error: "Password must be at least 6 characters." });
     if (!screenName) return json(res, 400, { error: "Please enter a screen name." });
@@ -582,6 +625,7 @@ async function handleApi(req, res, pathname) {
       username,
       screenName,
       name: screenName,
+      email,
       passwordHash: hashPassword(password),
       approved: false,
       createdAt: new Date().toISOString()
@@ -605,7 +649,48 @@ async function handleApi(req, res, pathname) {
     if (!isApprovedPlayer(player)) return json(res, 403, { error: "Your account is waiting for admin approval." });
     const token = makeSession(db, player);
     await saveDb(db);
-    return json(res, 200, { token, user: { ...safePlayer(player), isAdmin: false }, state: publicState(db) });
+    return json(res, 200, { token, user: { ...safePlayer(player, { includePrivate: true }), isAdmin: false }, state: publicState(db) });
+  }
+
+  if (req.method === "POST" && pathname === "/api/auth/forgot-password") {
+    if (!RESEND_API_KEY) return json(res, 503, { error: "Password reset email is not configured." });
+    const body = await readBody(req);
+    const username = usernameKey(body.username);
+    const player = db.players.find(item => usernameKey(item.username) === username);
+    if (player && player.email) {
+      const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+      db.passwordResets = db.passwordResets.filter(item => item.playerId !== player.id || new Date(item.expiresAt) > new Date());
+      db.passwordResets.push({
+        id: id("reset"),
+        playerId: player.id,
+        codeHash: hashPassword(code),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        createdAt: new Date().toISOString()
+      });
+      await sendPasswordResetEmail(player.email, code);
+      await saveDb(db);
+    }
+    return json(res, 200, { ok: true });
+  }
+
+  if (req.method === "POST" && pathname === "/api/auth/reset-password") {
+    const body = await readBody(req);
+    const username = usernameKey(body.username);
+    const code = String(body.code || "").trim();
+    const password = String(body.password || "");
+    if (password.length < 6) return json(res, 400, { error: "Password must be at least 6 characters." });
+    const player = db.players.find(item => usernameKey(item.username) === username);
+    const now = new Date();
+    const reset = player ? db.passwordResets
+      .filter(item => item.playerId === player.id && !item.usedAt && new Date(item.expiresAt) > now)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .find(item => verifyPassword(code, item.codeHash)) : null;
+    if (!player || !reset) return json(res, 400, { error: "Reset code is invalid or expired." });
+    player.passwordHash = hashPassword(password);
+    reset.usedAt = new Date().toISOString();
+    db.sessions = db.sessions.filter(item => item.playerId !== player.id);
+    await saveDb(db);
+    return json(res, 200, { ok: true });
   }
 
   if (req.method === "POST" && pathname === "/api/predictions") {
@@ -647,10 +732,17 @@ async function handleApi(req, res, pathname) {
     const newPassword = String(body.newPassword || "");
     const favoriteTeam = String(body.favoriteTeam || "").trim().slice(0, 60);
     const avatarDataUrl = cleanAvatarDataUrl(body.avatarDataUrl);
+    let email = "";
+    try {
+      email = cleanEmail(body.email);
+    } catch (error) {
+      return json(res, 400, { error: error.message });
+    }
     if (!screenName) return json(res, 400, { error: "Please enter a screen name." });
 
     player.screenName = screenName;
     player.name = screenName;
+    player.email = email;
     player.favoriteTeam = favoriteTeam;
     if (avatarDataUrl) player.avatarDataUrl = avatarDataUrl;
     else delete player.avatarDataUrl;
@@ -663,7 +755,7 @@ async function handleApi(req, res, pathname) {
 
     const token = newPassword ? makeSession(db, player) : String(req.headers["x-auth-token"] || "");
     await saveDb(db);
-    return json(res, 200, { token, user: { ...safePlayer(player), isAdmin: false }, state: publicState(db) });
+    return json(res, 200, { token, user: { ...safePlayer(player, { includePrivate: true }), isAdmin: false }, state: publicState(db) });
   }
 
   if (req.method === "POST" && pathname === "/api/admin/matches") {
