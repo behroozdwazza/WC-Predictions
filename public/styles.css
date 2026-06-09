@@ -914,7 +914,7 @@ body.rtl .rules-table th:first-child {
 }
 
 .user-form {
-  grid-template-columns: minmax(120px, 0.8fr) minmax(120px, 1fr) minmax(150px, 1fr) minmax(170px, 1fr) auto auto auto auto;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(120px, 0.9fr) minmax(180px, 1.2fr) minmax(150px, 1fr) minmax(170px, 1fr) auto auto auto auto;
   align-items: end;
   padding: 12px 0;
   border-top: 1px solid var(--line);

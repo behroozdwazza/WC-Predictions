@@ -1650,6 +1650,7 @@ function renderUserForm(player) {
     <form class="user-form" data-player-id="${player.id}">
       <div><strong>${player.approved === false ? t("pendingApproval") : t("approvedUser")}</strong><br><span class="pill ${player.approved === false ? "pending" : "done"}">${player.approved === false ? t("pendingApproval") : t("approvedUser")}</span></div>
       <label>${t("username")}<input name="username" value="${escapeHtml(player.username || "")}" required></label>
+      <label>${t("email")}<input name="email" type="email" value="${escapeHtml(player.email || "")}"></label>
       <label>${t("screenName")}<input name="screenName" value="${escapeHtml(player.name || "")}" required></label>
       <label>${t("newPassword")}<input name="password" type="password" placeholder="${t("keepPassword")}"></label>
       <button>${t("saveUser")}</button>
@@ -1893,6 +1894,7 @@ function wireAdmin() {
           body: JSON.stringify({
             playerId: form.dataset.playerId,
             username: form.elements.username.value,
+            email: form.elements.email.value,
             screenName: form.elements.screenName.value,
             password: form.elements.password.value
           })
