@@ -5,6 +5,7 @@ const state = {
   token: localStorage.getItem("wc-token") || "",
   authMode: "login",
   authNotice: "",
+  resetUsername: "",
   tab: "matches",
   adminTab: "scores",
   day: "all",
@@ -29,8 +30,18 @@ const translations = {
     login: "Log in",
     signup: "Sign up",
     username: "Username",
+    email: "Email address",
     screenName: "Screen name",
     password: "Password",
+    forgotPassword: "Forgot password?",
+    forgotPasswordIntro: "Enter your username and we will email a reset code to the address saved on your account.",
+    resetPassword: "Reset password",
+    resetPasswordIntro: "Enter the code from your email and choose a new password.",
+    resetCode: "Reset code",
+    sendResetCode: "Send reset code",
+    resetCodeSent: "If that account has an email address, a reset code has been sent.",
+    passwordResetDone: "Password reset. You can sign in with your new password.",
+    backToLogin: "Back to login",
     createAccount: "Create account",
     matches: "matches",
     players: "players",
@@ -39,7 +50,7 @@ const translations = {
     signOut: "Sign out",
     account: "Account",
     accountSettings: "Account Settings",
-    accountNotice: "Change the name shown in the ranking table. To change your password, enter your current password and a new password.",
+    accountNotice: "Add an email address for password resets, and change the name shown in the ranking table. To change your password, enter your current password and a new password.",
     currentPassword: "Current password",
     confirmNewPassword: "Confirm new password",
     updateAccount: "Update account",
@@ -200,8 +211,18 @@ const translations = {
     login: "ورود",
     signup: "ثبت‌نام",
     username: "نام کاربری",
+    email: "نشانی ایمیل",
     screenName: "نام نمایشی",
     password: "رمز عبور",
+    forgotPassword: "رمز عبور را فراموش کرده‌اید؟",
+    forgotPasswordIntro: "نام کاربری خود را وارد کنید تا کد بازیابی به ایمیل ذخیره‌شده در حساب شما ارسال شود.",
+    resetPassword: "بازیابی رمز عبور",
+    resetPasswordIntro: "کد ارسال‌شده به ایمیل را وارد کنید و رمز عبور جدید انتخاب کنید.",
+    resetCode: "کد بازیابی",
+    sendResetCode: "ارسال کد بازیابی",
+    resetCodeSent: "اگر این حساب ایمیل داشته باشد، کد بازیابی ارسال شد.",
+    passwordResetDone: "رمز عبور تغییر کرد. اکنون می‌توانید با رمز جدید وارد شوید.",
+    backToLogin: "بازگشت به ورود",
     createAccount: "ساخت حساب",
     matches: "بازی",
     players: "بازیکن",
@@ -210,7 +231,7 @@ const translations = {
     signOut: "خروج",
     account: "حساب کاربری",
     accountSettings: "تنظیمات حساب",
-    accountNotice: "نام نمایشی خود را در جدول رده‌بندی تغییر دهید. برای تغییر رمز عبور، رمز فعلی و رمز جدید را وارد کنید.",
+    accountNotice: "برای بازیابی رمز عبور، ایمیل خود را وارد کنید و نام نمایشی خود را در جدول رده‌بندی تغییر دهید. برای تغییر رمز عبور، رمز فعلی و رمز جدید را وارد کنید.",
     currentPassword: "رمز عبور فعلی",
     confirmNewPassword: "تکرار رمز عبور جدید",
     updateAccount: "به‌روزرسانی حساب",
@@ -624,6 +645,10 @@ function brandImages() {
 function renderLogin() {
   applyLanguageDirection();
   const isSignup = state.authMode === "signup";
+  const isForgot = state.authMode === "forgot";
+  const isReset = state.authMode === "reset";
+  const intro = isForgot ? t("forgotPasswordIntro") : isReset ? t("resetPasswordIntro") : isSignup ? t("signupIntro") : t("loginIntro");
+  const title = isForgot || isReset ? t("resetPassword") : t("loginTitle");
   app.innerHTML = `
     <main class="login-shell">
       <section class="login-visual" aria-label="Private World Cup prediction contest">
@@ -635,18 +660,25 @@ function renderLogin() {
       </section>
       <section class="login">
         ${languageSelector()}
-        <h1>${t("loginTitle")}</h1>
-        <p>${isSignup ? t("signupIntro") : t("loginIntro")}</p>
+        <h1>${title}</h1>
+        <p>${intro}</p>
         <div class="notice login-disclaimer">${t("privateContestNotice")}</div>
-        <div class="auth-tabs">
+        <div class="auth-tabs ${isForgot || isReset ? "hidden" : ""}">
           <button class="tab ${!isSignup ? "active" : ""}" data-auth-mode="login">${t("login")}</button>
           <button class="tab ${isSignup ? "active" : ""}" data-auth-mode="signup">${t("signup")}</button>
         </div>
         <form id="auth-form">
-          <label>${t("username")}<input name="username" autocomplete="username" pattern="[a-z0-9_]{3,24}" required></label>
+          <label>${t("username")}<input name="username" autocomplete="username" pattern="[a-z0-9_]{3,24}" value="${escapeHtml(state.resetUsername || "")}" required></label>
+          ${isSignup ? `<label>${t("email")}<input name="email" type="email" autocomplete="email" required></label>` : ""}
           ${isSignup ? `<label>${t("screenName")}<input name="screenName" autocomplete="nickname" maxlength="40" required></label>` : ""}
-          <label>${t("password")}<input name="password" type="password" autocomplete="${isSignup ? "new-password" : "current-password"}" minlength="6" required></label>
-          <button>${isSignup ? t("createAccount") : t("login")}</button>
+          ${isForgot ? "" : isReset ? `
+            <label>${t("resetCode")}<input name="code" inputmode="numeric" autocomplete="one-time-code" required></label>
+            <label>${t("newPassword")}<input name="password" type="password" autocomplete="new-password" minlength="6" required></label>
+            <label>${t("confirmNewPassword")}<input name="confirmPassword" type="password" autocomplete="new-password" minlength="6" required></label>
+          ` : `<label>${t("password")}<input name="password" type="password" autocomplete="${isSignup ? "new-password" : "current-password"}" minlength="6" required></label>`}
+          <button>${isForgot ? t("sendResetCode") : isReset ? t("resetPassword") : isSignup ? t("createAccount") : t("login")}</button>
+          ${!isSignup && !isForgot && !isReset ? `<button type="button" class="ghost" id="forgot-password">${t("forgotPassword")}</button>` : ""}
+          ${isForgot || isReset ? `<button type="button" class="ghost" id="back-to-login">${t("backToLogin")}</button>` : ""}
           <div class="error" id="auth-error"></div>
           <div class="success" id="auth-success">${state.authNotice ? t(state.authNotice) : ""}</div>
         </form>
@@ -661,15 +693,55 @@ function renderLogin() {
       renderLogin();
     });
   });
+  document.querySelector("#forgot-password")?.addEventListener("click", () => {
+    state.authMode = "forgot";
+    state.authNotice = "";
+    renderLogin();
+  });
+  document.querySelector("#back-to-login")?.addEventListener("click", () => {
+    state.authMode = "login";
+    state.authNotice = "";
+    renderLogin();
+  });
   document.querySelector("#auth-form").addEventListener("submit", async event => {
     event.preventDefault();
+    const form = event.currentTarget;
     const error = document.querySelector("#auth-error");
     state.authNotice = "";
     error.textContent = "";
+    if (state.authMode === "reset" && form.elements.password.value !== form.elements.confirmPassword.value) {
+      error.textContent = t("passwordMismatch");
+      return;
+    }
     try {
+      if (state.authMode === "forgot") {
+        await api("/api/auth/forgot-password", {
+          method: "POST",
+          body: JSON.stringify({ username: form.elements.username.value })
+        });
+        state.resetUsername = form.elements.username.value;
+        state.authMode = "reset";
+        state.authNotice = "resetCodeSent";
+        renderLogin();
+        return;
+      }
+      if (state.authMode === "reset") {
+        await api("/api/auth/reset-password", {
+          method: "POST",
+          body: JSON.stringify({
+            username: form.elements.username.value,
+            code: form.elements.code.value,
+            password: form.elements.password.value
+          })
+        });
+        state.authMode = "login";
+        state.authNotice = "passwordResetDone";
+        renderLogin();
+        return;
+      }
       const payload = await api(`/api/auth/${state.authMode}`, {
         method: "POST",
-        body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget)))
+        body: JSON.stringify(Object.fromEntries(new FormData(form)))
       });
       if (payload.pending) {
         state.authMode = "login";
@@ -1399,6 +1471,7 @@ function renderAccountPage() {
             <span class="meta">${t("avatarNotice")}</span>
           </div>
         </div>
+        <label>${t("email")}<input name="email" type="email" autocomplete="email" value="${escapeHtml(accountUser.email || "")}"></label>
         <label>${t("screenName")}<input name="screenName" value="${escapeHtml(accountUser.name || "")}" maxlength="40" required></label>
         <label>${t("currentPassword")}<input name="currentPassword" type="password" autocomplete="current-password"></label>
         <label>${t("newPassword")}<input name="newPassword" type="password" autocomplete="new-password" minlength="6" placeholder="${t("keepPassword")}"></label>
@@ -1745,6 +1818,7 @@ function wireAccount() {
         method: "POST",
         body: JSON.stringify({
           screenName: form.elements.screenName.value,
+          email: form.elements.email.value,
           currentPassword: form.elements.currentPassword.value,
           newPassword: form.elements.newPassword.value,
           favoriteTeam: form.elements.favoriteTeam.value,
