@@ -6,7 +6,7 @@ const seedMatches = require("./fixtures");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+const DATA_DIR = process.env.DATA_DIR || (process.env.RENDER ? "/var/data" : path.join(__dirname, "data"));
 const DB_FILE = path.join(DATA_DIR, "db.json");
 const PUBLIC_DIR = path.join(__dirname, "public");
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
@@ -1005,5 +1005,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
+  console.log(`Using database at ${DB_FILE}`);
   console.log(`World Cup prediction contest running on ${HOST}:${PORT}`);
 });
