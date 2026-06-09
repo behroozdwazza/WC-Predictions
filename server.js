@@ -925,8 +925,14 @@ async function handleApi(req, res, pathname) {
     const username = usernameKey(body.username);
     const screenName = String(body.screenName || "").trim().slice(0, 40);
     const password = String(body.password || "");
+    let email = player.email || "";
     if (!validateUsername(username)) return json(res, 400, { error: "Use 3-24 lowercase letters, numbers, or underscores for the username." });
     if (!screenName) return json(res, 400, { error: "Please enter a screen name." });
+    try {
+      if (Object.prototype.hasOwnProperty.call(body, "email")) email = cleanEmail(body.email);
+    } catch (err) {
+      return json(res, 400, { error: err.message });
+    }
     if (username === usernameKey(ADMIN_USERNAME) || db.players.some(item => item.id !== player.id && usernameKey(item.username) === username)) {
       return json(res, 409, { error: "That username is already taken." });
     }
@@ -934,6 +940,7 @@ async function handleApi(req, res, pathname) {
     player.username = username;
     player.screenName = screenName;
     player.name = screenName;
+    player.email = email;
     if (body.approved === true || body.approved === "true") player.approved = true;
     if (password) {
       if (password.length < 6) return json(res, 400, { error: "Password must be at least 6 characters." });
