@@ -41,7 +41,8 @@ async function loadDb() {
     const raw = await fs.readFile(DB_FILE, "utf8");
     const db = JSON.parse(raw);
     return normalizeDb(db);
-  } catch {
+  } catch (err) {
+    if (err.code !== "ENOENT") throw err;
     const db = normalizeDb({
       players: [],
       matches: seedMatches,
@@ -73,7 +74,14 @@ function normalizeDb(db) {
 }
 
 async function saveDb(db) {
-  await fs.writeFile(DB_FILE, JSON.stringify(db, null, 2));
+  const tempFile = `${DB_FILE}.tmp`;
+  try {
+    await fs.copyFile(DB_FILE, `${DB_FILE}.bak`);
+  } catch (err) {
+    if (err.code !== "ENOENT") console.warn(`Could not create database backup: ${err.message}`);
+  }
+  await fs.writeFile(tempFile, JSON.stringify(db, null, 2));
+  await fs.rename(tempFile, DB_FILE);
 }
 
 function json(res, status, payload) {
