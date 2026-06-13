@@ -945,12 +945,12 @@ function buildRankHistory(playerId) {
     const standings = calculatePreviewStandings(matches);
     const index = standings.findIndex(player => player.id === playerId);
     const player = standings[index];
-    return player ? { date, rank: index + 1, points: player.points } : null;
+    return player ? { date, rank: player.rank || index + 1, points: player.points } : null;
   }).filter(Boolean);
 }
 
 function calculatePreviewStandings(matches) {
-  return state.data.players.map(player => {
+  const standings = state.data.players.map(player => {
     let points = 0;
     let exacts = 0;
     let predicted = 0;
@@ -962,7 +962,20 @@ function calculatePreviewStandings(matches) {
       if (prediction && matchPoints >= 10) exacts += 1;
     }
     return { ...player, points: Math.round((points + Number.EPSILON) * 100) / 100, exacts, predicted };
-  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
+  }).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+  return withCompetitionRanks(standings);
+}
+
+function withCompetitionRanks(standings) {
+  let previousPoints = null;
+  let rank = 0;
+  return standings.map((player, index) => {
+    if (index === 0 || player.points !== previousPoints) {
+      rank = index + 1;
+      previousPoints = player.points;
+    }
+    return { ...player, rank };
+  });
 }
 
 function drawRankChart() {
@@ -1132,7 +1145,7 @@ function drawPointsBarChart() {
     ctx.font = "12px Segoe UI, sans-serif";
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
-    ctx.fillText(player.name, 0, 0);
+    ctx.fillText(`#${player.rank || index + 1} ${player.name}`, 0, 0);
     ctx.restore();
   });
 }
@@ -1259,7 +1272,7 @@ function renderRanking() {
       <div class="ranking">
         ${state.data.standings.map((player, index) => `
           <div class="rank-row">
-            <span class="rank">${index + 1}</span>
+            <span class="rank">${player.rank || index + 1}</span>
             ${rankingAvatar(player)}
             <span>${escapeHtml(player.name)}<br><span class="meta">${player.predicted} ${t("predictionCount")}</span></span>
             <span class="points">${player.points}</span>
@@ -1941,9 +1954,16 @@ function wireAdmin() {
   document.querySelector("#match-form")?.addEventListener("submit", async event => {
     event.preventDefault();
     const form = event.currentTarget;
+    const payload = Object.fromEntries(new FormData(form));
+    const kickoff = new Date(form.elements.kickoff.value);
+    if (Number.isNaN(kickoff.getTime())) {
+      alert("Please enter a valid kickoff time.");
+      return;
+    }
+    payload.kickoff = kickoff.toISOString();
     state.data = await api("/api/admin/matches", {
       method: "POST",
-      body: JSON.stringify(Object.fromEntries(new FormData(form)))
+      body: JSON.stringify(payload)
     });
     render();
   });
