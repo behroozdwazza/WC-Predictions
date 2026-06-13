@@ -165,7 +165,7 @@ function adminState(db) {
 
 function calculateStandings(db, matches) {
   const latest = latestPredictions(db.predictions);
-  return db.players.filter(isApprovedPlayer).map(player => {
+  const standings = db.players.filter(isApprovedPlayer).map(player => {
     const rows = matches.map(match => {
       const prediction = latest.get(`${player.id}:${match.id}`) || null;
       return {
@@ -181,11 +181,24 @@ function calculateStandings(db, matches) {
       exacts: rows.filter(row => row.points >= 10 && row.prediction).length,
       predicted: rows.filter(row => row.prediction).length
     };
-  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
+  }).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+  return withCompetitionRanks(standings);
 }
 
 function roundPoints(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function withCompetitionRanks(standings) {
+  let previousPoints = null;
+  let rank = 0;
+  return standings.map((player, index) => {
+    if (index === 0 || player.points !== previousPoints) {
+      rank = index + 1;
+      previousPoints = player.points;
+    }
+    return { ...player, rank };
+  });
 }
 
 function latestPredictions(predictions) {
@@ -365,7 +378,7 @@ function reportDateKey(value) {
 }
 
 function rankMap(standings) {
-  return new Map(standings.map((player, index) => [player.id, index + 1]));
+  return new Map(standings.map((player, index) => [player.id, player.rank || index + 1]));
 }
 
 function resultWinner(match) {
@@ -451,7 +464,7 @@ function buildFunFactsContext(db, date) {
   const completedDates = [...new Set(db.matches.filter(isFinished).map(match => reportDateKey(match.kickoff)))].sort();
   const rankHistory = completedDates.map(day => {
     const matchesToDay = db.matches.filter(match => isFinished(match) && reportDateKey(match.kickoff) <= day);
-    return { day, standings: calculateStandings(db, matchesToDay).map((player, index) => ({ id: player.id, name: player.name, rank: index + 1, points: player.points })) };
+    return { day, standings: calculateStandings(db, matchesToDay).map((player, index) => ({ id: player.id, name: player.name, rank: player.rank || index + 1, points: player.points })) };
   });
 
   return {
@@ -464,8 +477,8 @@ function buildFunFactsContext(db, date) {
       result: `${match.homeScore}-${match.awayScore}${match.penaltyWinner ? `, ${match.penaltyWinner} on penalties` : ""}`,
       winner: resultWinner(match)
     })),
-    beforeStandings: before.map((player, index) => ({ rank: index + 1, name: player.name, points: player.points })),
-    afterStandings: after.map((player, index) => ({ rank: index + 1, name: player.name, points: player.points })),
+    beforeStandings: before.map((player, index) => ({ rank: player.rank || index + 1, name: player.name, points: player.points })),
+    afterStandings: after.map((player, index) => ({ rank: player.rank || index + 1, name: player.name, points: player.points })),
     playerSummaries,
     biggestJump: playerSummaries.filter(item => item.rankChange > 0).sort((a, b) => b.rankChange - a.rankChange || b.dayPoints - a.dayPoints).slice(0, 5),
     biggestDrop: playerSummaries.filter(item => item.rankChange < 0).sort((a, b) => a.rankChange - b.rankChange || a.dayPoints - b.dayPoints).slice(0, 5),
