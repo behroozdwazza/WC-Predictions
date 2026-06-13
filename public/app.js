@@ -1075,16 +1075,18 @@ function drawPointsBarChart() {
   if (!canvas || !standings.length) return;
   const dpr = window.devicePixelRatio || 1;
   const cssWidth = canvas.clientWidth || 980;
-  const cssHeight = canvas.clientHeight || 520;
+  const cssHeight = canvas.clientHeight || 620;
   canvas.width = Math.round(cssWidth * dpr);
   canvas.height = Math.round(cssHeight * dpr);
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cssWidth, cssHeight);
 
-  const pad = { top: 58, right: 26, bottom: 132, left: 54 };
+  const pad = { top: 58, right: 26, bottom: 188, left: 54 };
   const plotW = cssWidth - pad.left - pad.right;
   const plotH = cssHeight - pad.top - pad.bottom;
+  const labelTop = pad.top + plotH;
+  const rankTop = cssHeight - 34;
   const maxPoints = Math.max(5, ...standings.map(player => Number(player.points) || 0));
   const y = points => pad.top + plotH - (points / maxPoints) * plotH;
 
@@ -1095,6 +1097,15 @@ function drawPointsBarChart() {
   ctx.strokeStyle = "#4d5d45";
   ctx.lineWidth = 1.5;
   ctx.strokeRect(pad.left, pad.top, plotW, plotH);
+  ctx.fillStyle = "#efb4b7";
+  ctx.fillRect(pad.left, labelTop, plotW, cssHeight - labelTop);
+  ctx.strokeStyle = "rgba(77, 93, 69, 0.72)";
+  ctx.beginPath();
+  ctx.moveTo(pad.left, labelTop);
+  ctx.lineTo(pad.left + plotW, labelTop);
+  ctx.moveTo(pad.left, rankTop);
+  ctx.lineTo(pad.left + plotW, rankTop);
+  ctx.stroke();
 
   ctx.strokeStyle = "rgba(70, 95, 70, 0.45)";
   ctx.fillStyle = "#1c1c1c";
@@ -1118,7 +1129,7 @@ function drawPointsBarChart() {
   ctx.fillText(t("pointsChartTitle"), cssWidth / 2, 18);
 
   const slot = plotW / standings.length;
-  const barW = Math.min(54, Math.max(18, slot * 0.58));
+  const barW = Math.min(38, Math.max(12, slot * 0.36));
   standings.forEach((player, index) => {
     const points = Number(player.points) || 0;
     const x = pad.left + slot * index + slot / 2 - barW / 2;
@@ -1139,15 +1150,39 @@ function drawPointsBarChart() {
     ctx.textBaseline = "bottom";
     ctx.fillText(points, x + barW / 2, yy - 8);
 
+    const slotLeft = pad.left + slot * index;
+    const slotCenter = slotLeft + slot / 2;
+    ctx.strokeStyle = "rgba(77, 93, 69, 0.45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(slotLeft, labelTop);
+    ctx.lineTo(slotLeft, cssHeight);
+    ctx.stroke();
+
     ctx.save();
-    ctx.translate(x + barW / 2, pad.top + plotH + 18);
-    ctx.rotate(-Math.PI / 4);
+    ctx.beginPath();
+    ctx.rect(slotLeft + 2, labelTop + 4, Math.max(1, slot - 4), rankTop - labelTop - 8);
+    ctx.clip();
+    ctx.translate(slotCenter, rankTop - 9);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = "#1f1f1f";
     ctx.font = "12px Segoe UI, sans-serif";
-    ctx.textAlign = "right";
+    ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(`#${player.rank || index + 1} ${player.name}`, 0, 0);
+    ctx.fillText(player.name, 0, 0);
     ctx.restore();
+
+    ctx.fillStyle = "#0b0d10";
+    ctx.font = "700 13px Segoe UI, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(player.rank || index + 1, slotCenter, rankTop + 17);
   });
+  ctx.strokeStyle = "rgba(77, 93, 69, 0.45)";
+  ctx.beginPath();
+  ctx.moveTo(pad.left + plotW, labelTop);
+  ctx.lineTo(pad.left + plotW, cssHeight);
+  ctx.stroke();
 }
 
 function drawPredictionPieCharts() {
@@ -1639,7 +1674,7 @@ function renderPointsChartPanel() {
   return `
     <section class="rank-chart-panel points-chart-panel">
       <h3>${t("pointsChartTitle")}</h3>
-      ${state.data.standings.length ? `<canvas id="points-chart" width="980" height="520"></canvas>` : `<div class="empty">${t("noPlayers")}</div>`}
+      ${state.data.standings.length ? `<canvas id="points-chart" width="980" height="620"></canvas>` : `<div class="empty">${t("noPlayers")}</div>`}
     </section>
   `;
 }

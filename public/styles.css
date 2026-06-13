@@ -829,10 +829,17 @@ body.rtl .frequent-score-list {
 #points-chart {
   width: 100%;
   height: auto;
-  max-height: 520px;
   border: 1px solid var(--line);
   border-radius: 6px;
   display: block;
+}
+
+#rank-chart {
+  max-height: 520px;
+}
+
+#points-chart {
+  max-height: 620px;
 }
 
 body.rtl .report-card ul {
