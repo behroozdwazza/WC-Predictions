@@ -630,8 +630,10 @@ function playerAvatar(player, size = "small") {
 }
 
 function rankingAvatar(player) {
+  const crown = Number(player.rank) === 1 ? `<span class="leader-crown" aria-hidden="true"></span>` : "";
   return `
     <span class="rank-avatar-wrap" tabindex="0" aria-label="${escapeHtml(player.name)}">
+      ${crown}
       ${playerAvatar(player)}
       <span class="avatar-popover">
         ${playerAvatar(player, "large")}
