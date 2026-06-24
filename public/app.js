@@ -11,6 +11,7 @@ const state = {
   day: "all",
   chartPlayerId: "",
   showPointsChart: false,
+  funFactsLoading: false,
   accountSaved: false,
   timezone: localStorage.getItem("wc-timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
   lang: localStorage.getItem("wc-lang") || "en"
@@ -157,6 +158,7 @@ const translations = {
     pointsChartTitle: "Total points by player",
     noRankHistory: "No completed match days yet.",
     funFactsNotice: "After entering final scores, generate a playful recap for newly finished matches since the previous fun facts report.",
+    funFactsLoading: "The report is being created. This can take about a minute.",
     matchDay: "Match day",
     generateReport: "Generate report",
     users: "Users",
@@ -338,6 +340,7 @@ const translations = {
     pointsChartTitle: "امتیاز کل بازیکنان",
     noRankHistory: "هنوز روز بازی تمام‌شده‌ای وجود ندارد.",
     funFactsNotice: "پس از ثبت نتایج نهایی یک روز، با OpenAI یک گزارش کوتاه و سرگرم‌کننده بسازید.",
+    funFactsLoading: "گزارش در حال ساخته شدن است. این کار ممکن است حدود یک دقیقه طول بکشد.",
     matchDay: "روز بازی",
     generateReport: "ساخت گزارش",
     users: "کاربران",
@@ -1630,7 +1633,8 @@ function renderFunFactsAdmin() {
       <h2>${t("generateFunFacts")}</h2>
       <div class="notice">${t("funFactsNotice")}</div>
       <form id="fun-facts-form" class="admin-grid">
-        <button class="wide">${t("generateReport")}</button>
+        <button class="wide" ${state.funFactsLoading ? "disabled" : ""}>${state.funFactsLoading ? t("funFactsLoading") : t("generateReport")}</button>
+        <div class="success wide" id="fun-facts-status">${state.funFactsLoading ? t("funFactsLoading") : ""}</div>
         <div class="error wide" id="fun-facts-error"></div>
       </form>
     </section>
@@ -2029,15 +2033,26 @@ function wireAdmin() {
     event.preventDefault();
     const form = event.currentTarget;
     const error = document.querySelector("#fun-facts-error");
+    const status = document.querySelector("#fun-facts-status");
+    const button = form.querySelector("button");
     error.textContent = "";
+    state.funFactsLoading = true;
+    button.disabled = true;
+    button.textContent = t("funFactsLoading");
+    if (status) status.textContent = t("funFactsLoading");
     try {
       state.data = await api("/api/admin/fun-facts", {
         method: "POST",
         body: JSON.stringify({})
       });
       state.tab = "fun";
+      state.funFactsLoading = false;
       render();
     } catch (err) {
+      state.funFactsLoading = false;
+      button.disabled = false;
+      button.textContent = t("generateReport");
+      if (status) status.textContent = "";
       error.textContent = err.message;
     }
   });
