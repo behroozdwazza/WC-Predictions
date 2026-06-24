@@ -151,7 +151,7 @@ function publicState(db, options = {}) {
     players: players.map(player => safePlayer(player, { includePrivate: options.includePrivate })),
     matches: db.matches.sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff)),
     predictions: Object.fromEntries(latest),
-    reports: db.reports.sort((a, b) => b.date.localeCompare(a.date) || new Date(b.createdAt) - new Date(a.createdAt)),
+    reports: db.reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
     preMatchReports: db.preMatchReports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
     standings,
     rules: { group: "10 exact, 7 outcome and goal difference, 4 winner only, 0 wrong shape or missing.", knockout: "Points scale by stage and whether the winner is decided in play or penalties." },
@@ -377,6 +377,18 @@ function reportDateKey(value) {
   return new Date(value).toISOString().slice(0, 10);
 }
 
+function matchFinishedTime(match) {
+  return new Date(match.resultUpdatedAt).getTime();
+}
+
+function finishedMatches(db) {
+  return db.matches
+    .filter(isFinished)
+    .map(match => ({ match, finishedAt: matchFinishedTime(match) }))
+    .filter(item => Number.isFinite(item.finishedAt))
+    .sort((a, b) => a.finishedAt - b.finishedAt);
+}
+
 function rankMap(standings) {
   return new Map(standings.map((player, index) => [player.id, player.rank || index + 1]));
 }
@@ -393,14 +405,34 @@ function exactPrediction(match, prediction) {
   return prediction && match.homeScore === prediction.homeScore && match.awayScore === prediction.awayScore;
 }
 
-function buildFunFactsContext(db, date) {
-  const dayMatches = db.matches
-    .filter(match => reportDateKey(match.kickoff) === date && isFinished(match))
-    .sort((a, b) => new Date(a.kickoff) - new Date(b.kickoff));
-  if (!dayMatches.length) throw new Error("No finished matches found for that day.");
+function buildFunFactsContext(db) {
+  const completed = finishedMatches(db);
+  const previousReport = [...db.reports]
+    .filter(report => report.createdAt)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+  let cutoff = -Infinity;
+  if (previousReport) {
+    const previousReportCreatedAt = new Date(previousReport.createdAt).getTime();
+    const previousFinished = completed.filter(item => item.finishedAt <= previousReportCreatedAt).at(-1);
+    cutoff = previousFinished?.finishedAt ?? previousReportCreatedAt;
+  }
 
-  const beforeMatches = db.matches.filter(match => isFinished(match) && reportDateKey(match.kickoff) < date);
-  const afterMatches = db.matches.filter(match => isFinished(match) && reportDateKey(match.kickoff) <= date);
+  const now = Date.now();
+  const recent = completed.filter(item => item.finishedAt > cutoff && item.finishedAt <= now);
+  if (!recent.length) throw new Error("No newly finished matches found since the previous fun facts report.");
+
+  const firstFinishedAt = recent[0].finishedAt;
+  const lastFinishedAt = recent[recent.length - 1].finishedAt;
+  const dayMatches = recent.map(item => item.match);
+  const legacyFinishedMatches = db.matches.filter(match => isFinished(match) && !Number.isFinite(matchFinishedTime(match)));
+  const beforeMatches = [
+    ...legacyFinishedMatches,
+    ...completed.filter(item => item.finishedAt <= cutoff).map(item => item.match)
+  ];
+  const afterMatches = [
+    ...legacyFinishedMatches,
+    ...completed.filter(item => item.finishedAt <= lastFinishedAt).map(item => item.match)
+  ];
   const before = calculateStandings(db, beforeMatches);
   const after = calculateStandings(db, afterMatches);
   const beforeRanks = rankMap(before);
@@ -468,7 +500,10 @@ function buildFunFactsContext(db, date) {
   });
 
   return {
-    date,
+    date: `${new Date(firstFinishedAt).toISOString()} to ${new Date(lastFinishedAt).toISOString()}`,
+    periodStart: new Date(firstFinishedAt).toISOString(),
+    periodEnd: new Date(lastFinishedAt).toISOString(),
+    previousReportCreatedAt: previousReport?.createdAt || null,
     matches: dayMatches.map(match => ({
       id: match.id,
       number: match.number,
@@ -499,9 +534,9 @@ function extractResponseText(payload) {
   return chunks.join("\n").trim();
 }
 
-async function generateFunFactsReport(db, date) {
+async function generateFunFactsReport(db) {
   if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured on the server.");
-  const context = buildFunFactsContext(db, date);
+  const context = buildFunFactsContext(db);
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -511,7 +546,7 @@ async function generateFunFactsReport(db, date) {
     body: JSON.stringify({
       model: OPENAI_MODEL,
       instructions: "You write playful but kind FIFA World Cup prediction-pool recaps. Use only the supplied data. Do not invent statistics, matches, or predictions. Celebrate good calls without insulting players. Return concise bilingual JSON.",
-      input: `Create fun facts for this match day. Mention ranking jumps/drops, perfect or rough prediction days, consistent movement toward the top if supported by rankHistory, and odd-but-correct predictions when present. Keep each language to 4-7 short bullets. Data:\n${JSON.stringify(context)}`,
+      input: `Create fun facts for this batch of recently finished matches. Mention ranking jumps/drops, perfect or rough prediction batches, consistent movement toward the top if supported by rankHistory, and odd-but-correct predictions when present. Keep each language to 4-7 short bullets. Data:\n${JSON.stringify(context)}`,
       text: {
         format: {
           type: "json_schema",
@@ -541,7 +576,10 @@ async function generateFunFactsReport(db, date) {
   const generated = JSON.parse(text);
   return {
     id: id("report"),
-    date,
+    date: context.date,
+    periodStart: context.periodStart,
+    periodEnd: context.periodEnd,
+    matchIds: context.matches.map(match => match.id),
     titleEn: generated.title_en,
     titleFa: generated.title_fa,
     bulletsEn: generated.bullets_en,
@@ -782,6 +820,7 @@ async function handleApi(req, res, pathname) {
   if (req.method === "POST" && pathname === "/api/admin/matches") {
     if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
     const body = await readBody(req);
+    const status = normalizeStatus(body.status || "scheduled");
     const match = {
       id: body.id || id("match"),
       number: Number(body.number || db.matches.length + 1),
@@ -791,7 +830,8 @@ async function handleApi(req, res, pathname) {
       away: String(body.away || "").trim(),
       kickoff: new Date(body.kickoff).toISOString(),
       venue: String(body.venue || ""),
-      status: String(body.status || "scheduled"),
+      status,
+      resultUpdatedAt: status === "finished" ? String(body.resultUpdatedAt || new Date().toISOString()) : undefined,
       sourceId: String(body.sourceId || body.number || "")
     };
     if (!match.home || !match.away || Number.isNaN(new Date(match.kickoff).getTime())) {
@@ -818,12 +858,12 @@ async function handleApi(req, res, pathname) {
 
   if (req.method === "POST" && pathname === "/api/admin/fun-facts") {
     if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
-    const body = await readBody(req);
-    const date = String(body.date || "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json(res, 400, { error: "Choose a match day." });
     try {
-      const report = await generateFunFactsReport(db, date);
-      db.reports = db.reports.filter(item => item.date !== date);
+      const report = await generateFunFactsReport(db);
+      db.reports = db.reports.filter(item => {
+        if (!Array.isArray(item.matchIds) || !Array.isArray(report.matchIds)) return true;
+        return !item.matchIds.some(matchId => report.matchIds.includes(matchId));
+      });
       db.reports.push(report);
       await saveDb(db);
       return json(res, 200, adminState(db));
@@ -876,7 +916,8 @@ async function handleApi(req, res, pathname) {
     if (!match) return json(res, 404, { error: "Match was not found." });
     match.homeScore = cleanScore(body.homeScore);
     match.awayScore = cleanScore(body.awayScore);
-    match.status = String(body.status || "finished");
+    match.status = normalizeStatus(body.status || "finished");
+    if (match.status === "finished") match.resultUpdatedAt = new Date().toISOString();
     match.penaltyWinner = match.homeScore === match.awayScore && match.stage !== "group" ? String(body.penaltyWinner || "") : "";
     if (match.homeScore === match.awayScore && match.stage !== "group" && !["home", "away"].includes(match.penaltyWinner)) {
       return json(res, 400, { error: "Choose the penalty winner for a knockout draw." });
@@ -893,6 +934,7 @@ async function handleApi(req, res, pathname) {
     delete match.homeScore;
     delete match.awayScore;
     delete match.penaltyWinner;
+    delete match.resultUpdatedAt;
     match.status = "scheduled";
     await saveDb(db);
     return json(res, 200, adminState(db));
@@ -902,18 +944,22 @@ async function handleApi(req, res, pathname) {
     if (!requireAdmin(req, db)) return json(res, 401, { error: "Admin credentials are required." });
     const body = await readBody(req);
     if (!Array.isArray(body.matches)) return json(res, 400, { error: "Send { matches: [...] }." });
-    db.matches = body.matches.map((match, index) => ({
-      id: String(match.id || `m${match.number || index + 1}`),
-      number: Number(match.number || index + 1),
-      stage: String(match.stage || "group"),
-      group: String(match.group || ""),
-      home: String(match.home || ""),
-      away: String(match.away || ""),
-      kickoff: new Date(match.kickoff).toISOString(),
-      venue: String(match.venue || ""),
-      status: String(match.status || "scheduled"),
-      sourceId: String(match.sourceId || match.number || "")
-    }));
+    db.matches = body.matches.map((match, index) => {
+      const status = normalizeStatus(match.status || "scheduled");
+      return {
+        id: String(match.id || `m${match.number || index + 1}`),
+        number: Number(match.number || index + 1),
+        stage: String(match.stage || "group"),
+        group: String(match.group || ""),
+        home: String(match.home || ""),
+        away: String(match.away || ""),
+        kickoff: new Date(match.kickoff).toISOString(),
+        venue: String(match.venue || ""),
+        status,
+        resultUpdatedAt: status === "finished" ? String(match.resultUpdatedAt || new Date().toISOString()) : undefined,
+        sourceId: String(match.sourceId || match.number || "")
+      };
+    });
     db.preMatchReports = [];
     await saveDb(db);
     return json(res, 200, adminState(db));
