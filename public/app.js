@@ -156,7 +156,7 @@ const translations = {
     showTotalPointsChart: "Points chart",
     pointsChartTitle: "Total points by player",
     noRankHistory: "No completed match days yet.",
-    funFactsNotice: "After entering the final scores for a match day, generate a playful recap using OpenAI.",
+    funFactsNotice: "After entering final scores, generate a playful recap for newly finished matches since the previous fun facts report.",
     matchDay: "Match day",
     generateReport: "Generate report",
     users: "Users",
@@ -569,6 +569,13 @@ function formatDay(value) {
     month: "short",
     day: "numeric"
   }).format(new Date(`${value}T12:00:00`));
+}
+
+function formatReportPeriod(report) {
+  if (!report.periodStart || !report.periodEnd) return report.date || "";
+  const start = formatKickoff(report.periodStart);
+  const end = formatKickoff(report.periodEnd);
+  return start === end ? start : `${start} - ${end}`;
 }
 
 function statusPill(match) {
@@ -1344,12 +1351,13 @@ function renderFunFactsPage() {
 function renderReport(report) {
   const title = state.lang === "fa" ? report.titleFa : report.titleEn;
   const bullets = state.lang === "fa" ? report.bulletsFa : report.bulletsEn;
+  const period = formatReportPeriod(report);
   return `
     <article class="report-card">
       <div class="report-head">
         <h3>${escapeHtml(title || report.date)}</h3>
         <div class="report-actions">
-          <span class="meta">${escapeHtml(report.date)} - ${t("generatedOn")} ${formatKickoff(report.createdAt)}</span>
+          <span class="meta">${escapeHtml(period)} - ${t("generatedOn")} ${formatKickoff(report.createdAt)}</span>
           ${state.user?.isAdmin ? `<button type="button" class="ghost delete-report" data-report-id="${escapeHtml(report.id)}" data-report-date="${escapeHtml(report.date)}">${t("delete")}</button>` : ""}
         </div>
       </div>
@@ -1617,18 +1625,12 @@ function renderScoreAdmin() {
 }
 
 function renderFunFactsAdmin() {
-  const dates = [...new Set(state.data.matches.filter(match => match.status === "finished").map(match => reportDateKey(match.kickoff)))].sort();
   return `
     <section class="panel" style="margin-top:16px">
       <h2>${t("generateFunFacts")}</h2>
       <div class="notice">${t("funFactsNotice")}</div>
       <form id="fun-facts-form" class="admin-grid">
-        <label>${t("matchDay")}
-          <select name="date" required>
-            ${dates.map(date => `<option value="${date}">${formatDay(date)}</option>`).join("")}
-          </select>
-        </label>
-        <button>${t("generateReport")}</button>
+        <button class="wide">${t("generateReport")}</button>
         <div class="error wide" id="fun-facts-error"></div>
       </form>
     </section>
@@ -2031,7 +2033,7 @@ function wireAdmin() {
     try {
       state.data = await api("/api/admin/fun-facts", {
         method: "POST",
-        body: JSON.stringify({ date: form.elements.date.value })
+        body: JSON.stringify({})
       });
       state.tab = "fun";
       render();
