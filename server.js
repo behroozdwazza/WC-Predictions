@@ -407,26 +407,35 @@ function exactPrediction(match, prediction) {
 
 function buildFunFactsContext(db) {
   const completed = finishedMatches(db);
+  const reportedMatchIds = new Set(db.reports.flatMap(report => Array.isArray(report.matchIds) ? report.matchIds : []));
   const previousReport = [...db.reports]
     .filter(report => report.createdAt)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
   let cutoff = -Infinity;
+  let previousReportCreatedAt = -Infinity;
   if (previousReport) {
-    const previousReportCreatedAt = new Date(previousReport.createdAt).getTime();
+    previousReportCreatedAt = new Date(previousReport.createdAt).getTime();
     const previousFinished = completed.filter(item => item.finishedAt <= previousReportCreatedAt).at(-1);
     cutoff = previousFinished?.finishedAt ?? previousReportCreatedAt;
   }
 
   const now = Date.now();
-  const recent = completed.filter(item => item.finishedAt > cutoff && item.finishedAt <= now);
+  const recentWithTimestamps = completed.filter(item => item.finishedAt > cutoff && item.finishedAt <= now);
+  const legacyRecent = db.matches
+    .filter(match => isFinished(match) && !Number.isFinite(matchFinishedTime(match)) && !reportedMatchIds.has(match.id))
+    .map(match => ({ match, finishedAt: new Date(match.kickoff).getTime() }))
+    .filter(item => Number.isFinite(item.finishedAt) && item.finishedAt > previousReportCreatedAt && item.finishedAt <= now);
+  const recent = [...recentWithTimestamps, ...legacyRecent]
+    .sort((a, b) => a.finishedAt - b.finishedAt);
   if (!recent.length) throw new Error("No newly finished matches found since the previous fun facts report.");
 
   const firstFinishedAt = recent[0].finishedAt;
   const lastFinishedAt = recent[recent.length - 1].finishedAt;
   const dayMatches = recent.map(item => item.match);
+  const recentMatchIds = new Set(dayMatches.map(match => match.id));
   const legacyFinishedMatches = db.matches.filter(match => isFinished(match) && !Number.isFinite(matchFinishedTime(match)));
   const beforeMatches = [
-    ...legacyFinishedMatches,
+    ...legacyFinishedMatches.filter(match => !recentMatchIds.has(match.id)),
     ...completed.filter(item => item.finishedAt <= cutoff).map(item => item.match)
   ];
   const afterMatches = [
