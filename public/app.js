@@ -9,6 +9,7 @@ const state = {
   tab: "matches",
   adminTab: "scores",
   day: "all",
+  dayManuallySelected: false,
   chartPlayerId: "",
   showPointsChart: false,
   funFactsLoading: false,
@@ -561,6 +562,15 @@ function dateKey(value) {
   return `${year}-${month}-${day}`;
 }
 
+function todayKey() {
+  return dateKey(new Date().toISOString());
+}
+
+function defaultFixtureDay(days) {
+  const today = todayKey();
+  return days.includes(today) ? today : days[0] || "all";
+}
+
 function reportDateKey(value) {
   return new Date(value).toISOString().slice(0, 10);
 }
@@ -834,7 +844,8 @@ function tabButton(tab, label) {
 
 function renderMatches() {
   const days = [...new Set(state.data.matches.map(match => dateKey(match.kickoff)))];
-  const activeDay = state.day === "all" || days.includes(state.day) ? state.day : days[0];
+  const shouldUseDefaultDay = !state.dayManuallySelected || (!days.includes(state.day) && state.day !== "all");
+  const activeDay = shouldUseDefaultDay ? defaultFixtureDay(days) : state.day;
   state.day = activeDay;
   const matches = state.data.matches.filter(match => activeDay === "all" || dateKey(match.kickoff) === activeDay);
   return `
@@ -1755,7 +1766,9 @@ function wireCommon() {
   });
   document.querySelectorAll("[data-tab]").forEach(button => {
     button.addEventListener("click", () => {
+      const previousTab = state.tab;
       state.tab = button.dataset.tab;
+      if (state.tab === "matches" && previousTab !== "matches") state.dayManuallySelected = false;
       if (state.tab !== "account") state.accountSaved = false;
       render();
     });
@@ -1766,12 +1779,13 @@ function wireMatches() {
   document.querySelectorAll("[data-day]").forEach(button => {
     button.addEventListener("click", () => {
       state.day = button.dataset.day;
+      state.dayManuallySelected = true;
       render();
     });
   });
   document.querySelector("#timezone-select")?.addEventListener("change", event => {
     state.timezone = event.target.value;
-    state.day = "all";
+    state.dayManuallySelected = false;
     localStorage.setItem("wc-timezone", state.timezone);
     render();
   });
