@@ -698,7 +698,7 @@ body.rtl .scoreline {
 
 .rank-row {
   display: grid;
-  grid-template-columns: 34px 34px 1fr auto;
+  grid-template-columns: 34px 34px 1fr auto auto;
   gap: 10px;
   align-items: center;
   padding: 10px;
@@ -715,6 +715,30 @@ body.rtl .scoreline {
 .points {
   font-weight: 850;
   color: var(--mascot-green);
+}
+
+.exacts {
+  display: grid;
+  justify-items: center;
+  min-width: 42px;
+  padding: 4px 6px;
+  border: 1px solid rgba(37, 75, 177, 0.18);
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--mascot-blue);
+  line-height: 1;
+}
+
+.exacts strong {
+  font-size: 14px;
+}
+
+.exacts small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .rules {
@@ -1205,7 +1229,13 @@ body.rtl .rules-table th:first-child {
   }
 
   .rank-row {
-    grid-template-columns: 28px 32px 1fr auto;
+    grid-template-columns: 28px 32px minmax(0, 1fr) 40px auto;
+    gap: 8px;
+  }
+
+  .exacts {
+    min-width: 38px;
+    padding: 4px;
   }
 
   .avatar-editor,

@@ -106,6 +106,7 @@ const translations = {
     ranking: "Ranking",
     noPlayers: "No players yet.",
     predictionCount: "predictions",
+    exactPredictionCount: "exact",
     scoring: "Scoring",
     groupSummary: "Exact score: 10 - correct outcome and goal difference: 7 - correct winner only: 4 - wrong shape or missing prediction: 0.",
     knockoutSummary: "Points rise by round. Predict the 120-minute score; if you predict a draw, choose who wins penalties.",
@@ -1346,6 +1347,7 @@ function renderRanking() {
             <span class="rank">${player.rank || index + 1}</span>
             ${rankingAvatar(player)}
             <span>${escapeHtml(player.name)}<br><span class="meta">${player.predicted} ${t("predictionCount")}</span></span>
+            <span class="exacts"><strong>${player.exacts || 0}</strong><small>${t("exactPredictionCount")}</small></span>
             <span class="points">${player.points}</span>
           </div>
         `).join("") || `<div class="empty">${t("noPlayers")}</div>`}
