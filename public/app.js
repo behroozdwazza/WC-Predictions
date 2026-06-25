@@ -1099,7 +1099,8 @@ function drawPointsBarChart() {
   const plotH = cssHeight - pad.top - pad.bottom;
   const labelTop = pad.top + plotH;
   const rankTop = cssHeight - 34;
-  const maxPoints = Math.max(5, ...standings.map(player => Number(player.points) || 0));
+  const maxActualPoints = Math.max(5, ...standings.map(player => Number(player.points) || 0));
+  const maxPoints = Math.ceil((maxActualPoints * 1.12) / 10) * 10;
   const y = points => pad.top + plotH - (points / maxPoints) * plotH;
 
   ctx.fillStyle = "#fac18e";
@@ -1159,9 +1160,9 @@ function drawPointsBarChart() {
     ctx.fillStyle = "#0b0d10";
     ctx.font = "700 13px Segoe UI, sans-serif";
     ctx.save();
-    ctx.translate(x + barW / 2, yy - 8);
+    ctx.translate(x + barW / 2, yy - 14);
     ctx.rotate(-Math.PI / 2);
-    ctx.textAlign = "center";
+    ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(points, 0, 0);
     ctx.restore();
