@@ -1158,9 +1158,13 @@ function drawPointsBarChart() {
 
     ctx.fillStyle = "#0b0d10";
     ctx.font = "700 13px Segoe UI, sans-serif";
+    ctx.save();
+    ctx.translate(x + barW / 2, yy - 8);
+    ctx.rotate(-Math.PI / 2);
     ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.fillText(points, x + barW / 2, yy - 8);
+    ctx.textBaseline = "middle";
+    ctx.fillText(points, 0, 0);
+    ctx.restore();
 
     const slotLeft = pad.left + slot * index;
     const slotCenter = slotLeft + slot / 2;
