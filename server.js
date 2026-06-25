@@ -181,7 +181,7 @@ function calculateStandings(db, matches) {
       exacts: rows.filter(row => row.points >= 10 && row.prediction).length,
       predicted: rows.filter(row => row.prediction).length
     };
-  }).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
   return withCompetitionRanks(standings);
 }
 
@@ -191,11 +191,13 @@ function roundPoints(value) {
 
 function withCompetitionRanks(standings) {
   let previousPoints = null;
+  let previousExacts = null;
   let rank = 0;
   return standings.map((player, index) => {
-    if (index === 0 || player.points !== previousPoints) {
+    if (index === 0 || player.points !== previousPoints || player.exacts !== previousExacts) {
       rank = index + 1;
       previousPoints = player.points;
+      previousExacts = player.exacts;
     }
     return { ...player, rank };
   });
