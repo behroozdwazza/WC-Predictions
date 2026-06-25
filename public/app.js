@@ -10,6 +10,7 @@ const state = {
   adminTab: "scores",
   day: "all",
   dayManuallySelected: false,
+  autoScrollToToday: true,
   chartPlayerId: "",
   showPointsChart: false,
   funFactsLoading: false,
@@ -566,11 +567,6 @@ function todayKey() {
   return dateKey(new Date().toISOString());
 }
 
-function defaultFixtureDay(days) {
-  const today = todayKey();
-  return days.includes(today) ? today : days[0] || "all";
-}
-
 function reportDateKey(value) {
   return new Date(value).toISOString().slice(0, 10);
 }
@@ -836,6 +832,7 @@ function render() {
   if (state.tab === "account") wireAccount();
   if (state.tab === "admin") wireAdmin();
   if (state.tab === "matchReports") drawPredictionPieCharts();
+  if (state.tab === "matches") scrollToTodayMatch();
 }
 
 function tabButton(tab, label) {
@@ -844,8 +841,7 @@ function tabButton(tab, label) {
 
 function renderMatches() {
   const days = [...new Set(state.data.matches.map(match => dateKey(match.kickoff)))];
-  const shouldUseDefaultDay = !state.dayManuallySelected || (!days.includes(state.day) && state.day !== "all");
-  const activeDay = shouldUseDefaultDay ? defaultFixtureDay(days) : state.day;
+  const activeDay = state.day === "all" || days.includes(state.day) ? state.day : "all";
   state.day = activeDay;
   const matches = state.data.matches.filter(match => activeDay === "all" || dateKey(match.kickoff) === activeDay);
   return `
@@ -870,6 +866,16 @@ function renderMatches() {
   `;
 }
 
+function scrollToTodayMatch() {
+  if (!state.autoScrollToToday || state.day !== "all") return;
+  state.autoScrollToToday = false;
+  const today = todayKey();
+  requestAnimationFrame(() => {
+    const match = document.querySelector(`.match[data-match-day="${today}"]`);
+    match?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function timezoneOptions() {
   const zones = [...new Set([state.timezone, ...timezones])];
   return zones.map(zone => `<option value="${escapeHtml(zone)}" ${zone === state.timezone ? "selected" : ""}>${escapeHtml(zone)}</option>`).join("");
@@ -881,7 +887,7 @@ function renderMatch(match) {
   const canSubmit = !state.user.isAdmin && !locked;
   const predictionPoints = prediction && match.status === "finished" ? scorePredictionPreview(match, prediction) : null;
   return `
-    <article class="match">
+    <article class="match" data-match-day="${dateKey(match.kickoff)}">
       <div class="match-head">
         <div>
           <div class="meta">${t("matchNumber")} ${match.number} - ${stageLabel(match.stage) || match.stage}${match.group ? ` - ${t("group")} ${escapeHtml(match.group)}` : ""}</div>
@@ -1768,7 +1774,11 @@ function wireCommon() {
     button.addEventListener("click", () => {
       const previousTab = state.tab;
       state.tab = button.dataset.tab;
-      if (state.tab === "matches" && previousTab !== "matches") state.dayManuallySelected = false;
+      if (state.tab === "matches" && previousTab !== "matches") {
+        state.day = "all";
+        state.dayManuallySelected = false;
+        state.autoScrollToToday = true;
+      }
       if (state.tab !== "account") state.accountSaved = false;
       render();
     });
@@ -1785,7 +1795,9 @@ function wireMatches() {
   });
   document.querySelector("#timezone-select")?.addEventListener("change", event => {
     state.timezone = event.target.value;
+    state.day = "all";
     state.dayManuallySelected = false;
+    state.autoScrollToToday = true;
     localStorage.setItem("wc-timezone", state.timezone);
     render();
   });
