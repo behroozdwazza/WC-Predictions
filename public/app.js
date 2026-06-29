@@ -989,11 +989,21 @@ function calculatePreviewStandings(matches) {
       if (prediction) predicted += 1;
       const matchPoints = scorePredictionPreview(match, prediction);
       points += matchPoints;
-      if (prediction && matchPoints >= 10) exacts += 1;
+      if (isExactScorePrediction(match, prediction)) exacts += 1;
     }
     return { ...player, points: Math.round((points + Number.EPSILON) * 100) / 100, exacts, predicted };
   }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
   return withCompetitionRanks(standings);
+}
+
+function isExactScorePrediction(match, prediction) {
+  return Boolean(
+    match &&
+    prediction &&
+    match.status === "finished" &&
+    match.homeScore === prediction.homeScore &&
+    match.awayScore === prediction.awayScore
+  );
 }
 
 function withCompetitionRanks(standings) {
