@@ -414,6 +414,10 @@ function predictionWinner(prediction) {
   return winnerFromPrediction(prediction);
 }
 
+function predictionOutcomeKey(prediction) {
+  return matchOutcome(prediction.homeScore, prediction.awayScore);
+}
+
 function exactPrediction(match, prediction) {
   return prediction && match.homeScore === prediction.homeScore && match.awayScore === prediction.awayScore;
 }
@@ -624,8 +628,9 @@ function buildPreMatchReport(db, matchId) {
     return {
       player: safePlayer(player),
       prediction,
-      outcome: winnerFromPrediction(prediction),
-      score: `${prediction.homeScore}-${prediction.awayScore}${prediction.penaltyWinner ? ` ${prediction.penaltyWinner}` : ""}`
+      outcome: predictionOutcomeKey(prediction),
+      penaltyWinner: prediction.penaltyWinner === "home" ? match.home : prediction.penaltyWinner === "away" ? match.away : "",
+      score: `${prediction.homeScore}-${prediction.awayScore}`
     };
   }).filter(Boolean);
 
@@ -664,6 +669,7 @@ function buildPreMatchReport(db, matchId) {
     predictions: rows.map(row => ({
       player: row.player.name,
       score: row.score,
+      penaltyWinner: row.penaltyWinner,
       outcome: row.outcome
     })).sort((a, b) => a.player.localeCompare(b.player))
   };
