@@ -1454,11 +1454,15 @@ function renderPreMatchReport(report) {
       <details>
         <summary>${t("allPredictions")}</summary>
         <div class="prediction-mini-list">
-          ${(report.predictions || []).map(item => `<span>${escapeHtml(item.player)}: ${escapeHtml(item.score)}</span>`).join("") || t("noPredictionsYet")}
+          ${(report.predictions || []).map(item => `<span>${escapeHtml(item.player)}: ${escapeHtml(predictionReportScore(item))}</span>`).join("") || t("noPredictionsYet")}
         </div>
       </details>
     </article>
   `;
+}
+
+function predictionReportScore(item) {
+  return item.penaltyWinner ? `${item.score}, ${item.penaltyWinner} ${t("onPenalties")}` : item.score;
 }
 
 function teamFlagImg(team) {
