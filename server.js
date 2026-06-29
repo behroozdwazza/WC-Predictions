@@ -170,6 +170,7 @@ function calculateStandings(db, matches) {
       const prediction = latest.get(`${player.id}:${match.id}`) || null;
       return {
         matchId: match.id,
+        match,
         prediction,
         points: scorePrediction(match, prediction)
       };
@@ -178,11 +179,21 @@ function calculateStandings(db, matches) {
     return {
       ...safe,
       points: roundPoints(rows.reduce((sum, row) => sum + row.points, 0)),
-      exacts: rows.filter(row => row.points >= 10 && row.prediction).length,
+      exacts: rows.filter(row => isExactScorePrediction(row.match, row.prediction)).length,
       predicted: rows.filter(row => row.prediction).length
     };
   }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
   return withCompetitionRanks(standings);
+}
+
+function isExactScorePrediction(match, prediction) {
+  return Boolean(
+    match &&
+    prediction &&
+    isFinished(match) &&
+    match.homeScore === prediction.homeScore &&
+    match.awayScore === prediction.awayScore
+  );
 }
 
 function roundPoints(value) {
