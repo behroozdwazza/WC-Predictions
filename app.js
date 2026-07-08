@@ -149,6 +149,36 @@ const translations = {
     updateFixture: "Update Fixture",
     userManagement: "User Management",
     preMatchReports: "Pre-Match Reports",
+    restDayFun: "Rest Day Fun",
+    restDayNotice: "Admin-only reports for rest days and email recaps. These update automatically as more matches finish.",
+    tournamentAwards: "Tournament Personality Awards",
+    whatIfRankings: "What-if Rankings",
+    currentLeaders: "Current leaders",
+    noFinishedMatchesYet: "No finished matches yet.",
+    exactMaster: "Exact Master",
+    exactMasterDesc: "Most perfectly predicted final scorelines.",
+    drawProphet: "Draw Prophet",
+    drawProphetDesc: "Most correctly predicted draws.",
+    penaltyWhisperer: "Penalty Whisperer",
+    penaltyWhispererDesc: "Best record at calling penalty shootout winners.",
+    chaosMerchant: "Chaos Merchant",
+    chaosMerchantDesc: "Highest average number of goals predicted per match.",
+    completionChampion: "Completion Champion",
+    completionChampionDesc: "Most predictions submitted for finished matches.",
+    comebackClimber: "Comeback Climber",
+    comebackClimberDesc: "Biggest rise in the ranking table since the start.",
+    perfect: "perfect",
+    correctDraws: "correct draws",
+    correctPenaltyPicks: "correct penalty picks",
+    avgPredictedGoals: "avg predicted goals",
+    submittedPredictions: "submitted predictions",
+    rankPlaces: "rank places",
+    currentRanking: "Current ranking",
+    knockoutOnly: "Knockout matches only",
+    groupOnly: "Group stage only",
+    doubleExactScores: "Exact scores count double",
+    dropWorstThree: "Drop each player's worst 3 matches",
+    winnerOnlyRanking: "Winner-only ranking",
     generateFunFacts: "Generate Fun Facts",
     generatePreMatchReport: "Generate pre-match report",
     preMatchNotice: "After a match starts, generate the prediction distribution report for that match.",
@@ -386,6 +416,39 @@ const translations = {
     stage_final: "فینال"
   }
 };
+
+Object.assign(translations.fa, {
+  restDayFun: "گزارش روز استراحت",
+  restDayNotice: "گزارش‌های مخصوص مدیر برای روزهای بدون بازی و متن ایمیل. با پایان بازی‌های بیشتر، این گزارش‌ها خودکار به‌روز می‌شوند.",
+  tournamentAwards: "جایزه‌های شخصیتی تورنمنت",
+  whatIfRankings: "رده‌بندی‌های فرضی",
+  currentLeaders: "صدرنشینان فعلی",
+  noFinishedMatchesYet: "هنوز بازی تمام‌شده‌ای وجود ندارد.",
+  exactMaster: "استاد نتیجه دقیق",
+  exactMasterDesc: "بیشترین تعداد پیش‌بینی با نتیجه کاملاً دقیق.",
+  drawProphet: "پیامبر مساوی",
+  drawProphetDesc: "بیشترین تعداد مساوی‌های درست پیش‌بینی‌شده.",
+  penaltyWhisperer: "نجواگر پنالتی",
+  penaltyWhispererDesc: "بهترین عملکرد در پیش‌بینی برنده ضربات پنالتی.",
+  chaosMerchant: "معمار آشوب",
+  chaosMerchantDesc: "کسی که بیشتر از بقیه بازی‌های پرگل و پرحادثه پیش‌بینی کرده است.",
+  completionChampion: "قهرمان پیگیری",
+  completionChampionDesc: "بیشترین تعداد پیش‌بینی ثبت‌شده در بازی‌های تمام‌شده.",
+  comebackClimber: "صعودکننده بازگشتی",
+  comebackClimberDesc: "بزرگ‌ترین صعود در جدول رده‌بندی از شروع مسابقات تا امروز.",
+  perfect: "نتیجه دقیق",
+  correctDraws: "مساوی درست",
+  correctPenaltyPicks: "پنالتی درست",
+  avgPredictedGoals: "میانگین گل پیش‌بینی‌شده",
+  submittedPredictions: "پیش‌بینی ثبت‌شده",
+  rankPlaces: "پله صعود",
+  currentRanking: "رده‌بندی فعلی",
+  knockoutOnly: "فقط بازی‌های حذفی",
+  groupOnly: "فقط مرحله گروهی",
+  doubleExactScores: "نتایج دقیق دو برابر حساب شوند",
+  dropWorstThree: "حذف سه نتیجه بد هر بازیکن",
+  winnerOnlyRanking: "رده‌بندی فقط بر اساس برنده درست"
+});
 
 const timezones = [
   "UTC",
@@ -989,11 +1052,21 @@ function calculatePreviewStandings(matches) {
       if (prediction) predicted += 1;
       const matchPoints = scorePredictionPreview(match, prediction);
       points += matchPoints;
-      if (prediction && matchPoints >= 10) exacts += 1;
+      if (isExactScorePrediction(match, prediction)) exacts += 1;
     }
     return { ...player, points: Math.round((points + Number.EPSILON) * 100) / 100, exacts, predicted };
   }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
   return withCompetitionRanks(standings);
+}
+
+function isExactScorePrediction(match, prediction) {
+  return Boolean(
+    match &&
+    prediction &&
+    match.status === "finished" &&
+    match.homeScore === prediction.homeScore &&
+    match.awayScore === prediction.awayScore
+  );
 }
 
 function withCompetitionRanks(standings) {
@@ -1346,7 +1419,8 @@ function renderRanking() {
           <div class="rank-row">
             <span class="rank">${player.rank || index + 1}</span>
             ${rankingAvatar(player)}
-            <span>${escapeHtml(player.name)}<br><span class="meta">${player.predicted} ${t("predictionCount")} - ${player.exacts || 0} ${t("exactPredictionCount")}</span></span>
+            <span>${escapeHtml(player.name)}<br><span class="meta">${player.predicted} ${t("predictionCount")}</span></span>
+            <span class="exacts"><strong>${player.exacts || 0}</strong><small>${t("exactPredictionCount")}</small></span>
             <span class="points">${player.points}</span>
           </div>
         `).join("") || `<div class="empty">${t("noPlayers")}</div>`}
@@ -1443,11 +1517,15 @@ function renderPreMatchReport(report) {
       <details>
         <summary>${t("allPredictions")}</summary>
         <div class="prediction-mini-list">
-          ${(report.predictions || []).map(item => `<span>${escapeHtml(item.player)}: ${escapeHtml(item.score)}</span>`).join("") || t("noPredictionsYet")}
+          ${(report.predictions || []).map(item => `<span>${escapeHtml(item.player)}: ${escapeHtml(predictionReportScore(item))}</span>`).join("") || t("noPredictionsYet")}
         </div>
       </details>
     </article>
   `;
+}
+
+function predictionReportScore(item) {
+  return item.penaltyWinner ? `${item.score}, ${item.penaltyWinner} ${t("onPenalties")}` : item.score;
 }
 
 function teamFlagImg(team) {
@@ -1583,12 +1661,14 @@ function renderAdmin() {
       ${adminTabButton("users", t("userManagement"))}
       ${adminTabButton("fun", t("generateFunFacts"))}
       ${adminTabButton("prematch", t("preMatchReports"))}
+      ${adminTabButton("rest", t("restDayFun"))}
     </nav>
     ${state.adminTab === "scores" ? renderScoreAdmin() : ""}
     ${state.adminTab === "fixture" ? renderFixtureAdmin() : ""}
     ${state.adminTab === "users" ? renderUserAdmin() : ""}
     ${state.adminTab === "fun" ? renderFunFactsAdmin() : ""}
     ${state.adminTab === "prematch" ? renderPreMatchAdmin() : ""}
+    ${state.adminTab === "rest" ? renderRestDayFunAdmin() : ""}
   `;
 }
 
@@ -1686,6 +1766,188 @@ function renderPreMatchAdmin() {
       </form>
     </section>
     ${renderMatchReportsPage()}
+  `;
+}
+
+function renderRestDayFunAdmin() {
+  const report = buildRestDayReport();
+  return `
+    <section class="panel rest-day-panel" style="margin-top:16px">
+      <h2>${t("restDayFun")}</h2>
+      <div class="notice">${t("restDayNotice")}</div>
+      ${report.finishedMatches.length ? `
+        <div class="rest-summary">
+          <div><strong>${report.finishedMatches.length}</strong><span>${t("finished")}</span></div>
+          <div><strong>${report.players.length}</strong><span>${t("players")}</span></div>
+          <div><strong>${report.totalPredictions}</strong><span>${t("predictionCount")}</span></div>
+        </div>
+        <h3>${t("tournamentAwards")}</h3>
+        <div class="award-grid">
+          ${report.awards.map(renderAwardCard).join("")}
+        </div>
+        <h3>${t("whatIfRankings")}</h3>
+        <div class="what-if-grid">
+          ${report.scenarios.map(renderWhatIfTable).join("")}
+        </div>
+      ` : `<div class="empty">${t("noFinishedMatchesYet")}</div>`}
+    </section>
+  `;
+}
+
+function buildRestDayReport() {
+  const players = state.data.players.filter(player => player.approved !== false);
+  const finishedMatches = state.data.matches.filter(match => match.status === "finished" && Number.isFinite(match.homeScore) && Number.isFinite(match.awayScore));
+  const totalPredictions = players.reduce((sum, player) => sum + finishedMatches.filter(match => predictionFor(player.id, match.id)).length, 0);
+  const stats = players.map(player => buildPlayerFunStats(player, finishedMatches));
+  return {
+    players,
+    finishedMatches,
+    totalPredictions,
+    awards: buildTournamentAwards(stats, finishedMatches),
+    scenarios: buildWhatIfScenarios(players, finishedMatches)
+  };
+}
+
+function predictionFor(playerId, matchId) {
+  return state.data.predictions[`${playerId}:${matchId}`] || null;
+}
+
+function buildPlayerFunStats(player, matches) {
+  let submitted = 0;
+  let exact = 0;
+  let correctDraws = 0;
+  let penaltyCorrect = 0;
+  let predictedGoals = 0;
+  for (const match of matches) {
+    const prediction = predictionFor(player.id, match.id);
+    if (!prediction) continue;
+    submitted += 1;
+    predictedGoals += prediction.homeScore + prediction.awayScore;
+    if (isExactScorePrediction(match, prediction)) exact += 1;
+    if (matchOutcome(match.homeScore, match.awayScore) === "draw" && matchOutcome(prediction.homeScore, prediction.awayScore) === "draw") correctDraws += 1;
+    if (match.penaltyWinner && prediction.penaltyWinner === match.penaltyWinner) penaltyCorrect += 1;
+  }
+  return {
+    player,
+    submitted,
+    exact,
+    correctDraws,
+    penaltyCorrect,
+    avgPredictedGoals: submitted ? predictedGoals / submitted : 0,
+    rankChange: rankChangeForPlayer(player.id)
+  };
+}
+
+function rankChangeForPlayer(playerId) {
+  const finishedDates = [...new Set(state.data.matches.filter(match => match.status === "finished").map(match => reportDateKey(match.kickoff)))].sort();
+  if (finishedDates.length < 2) return 0;
+  const firstDate = finishedDates[0];
+  const lastDate = finishedDates[finishedDates.length - 1];
+  const first = calculatePreviewStandings(state.data.matches.filter(match => match.status === "finished" && reportDateKey(match.kickoff) <= firstDate));
+  const latest = calculatePreviewStandings(state.data.matches.filter(match => match.status === "finished" && reportDateKey(match.kickoff) <= lastDate));
+  const firstRank = first.find(player => player.id === playerId)?.rank || first.length + 1;
+  const latestRank = latest.find(player => player.id === playerId)?.rank || latest.length + 1;
+  return firstRank - latestRank;
+}
+
+function buildTournamentAwards(stats, matches) {
+  return [
+    awardFromStats(t("exactMaster"), t("exactMasterDesc"), stats, item => item.exact, t("perfect")),
+    awardFromStats(t("drawProphet"), t("drawProphetDesc"), stats, item => item.correctDraws, t("correctDraws")),
+    awardFromStats(t("penaltyWhisperer"), t("penaltyWhispererDesc"), stats, item => item.penaltyCorrect, t("correctPenaltyPicks"), matches.some(match => match.penaltyWinner)),
+    awardFromStats(t("chaosMerchant"), t("chaosMerchantDesc"), stats, item => item.avgPredictedGoals, t("avgPredictedGoals"), true, 1),
+    awardFromStats(t("completionChampion"), t("completionChampionDesc"), stats, item => item.submitted, t("submittedPredictions")),
+    awardFromStats(t("comebackClimber"), t("comebackClimberDesc"), stats, item => item.rankChange, t("rankPlaces"))
+  ].filter(Boolean);
+}
+
+function awardFromStats(title, description, stats, valueFn, unit, enabled = true, decimals = 0) {
+  if (!enabled) return null;
+  const ranked = stats
+    .map(item => ({ ...item, value: valueFn(item) }))
+    .filter(item => Number.isFinite(item.value))
+    .sort((a, b) => b.value - a.value || a.player.name.localeCompare(b.player.name));
+  const topValue = ranked[0]?.value || 0;
+  const winners = ranked.filter(item => item.value === topValue);
+  return {
+    title,
+    description,
+    names: winners.map(item => item.player.name),
+    value: decimals ? topValue.toFixed(decimals) : topValue,
+    unit
+  };
+}
+
+function renderAwardCard(award) {
+  return `
+    <article class="award-card">
+      <h4>${escapeHtml(award.title)}</h4>
+      <p>${escapeHtml(award.description)}</p>
+      <strong>${award.names.map(escapeHtml).join(", ")}</strong>
+      <span>${escapeHtml(String(award.value))} ${escapeHtml(award.unit)}</span>
+    </article>
+  `;
+}
+
+function buildWhatIfScenarios(players, finishedMatches) {
+  return [
+    { title: t("currentRanking"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => scorePredictionPreview(match, prediction)) },
+    { title: t("knockoutOnly"), rows: scenarioStandings(players, finishedMatches.filter(match => match.stage !== "group"), (match, prediction) => scorePredictionPreview(match, prediction)) },
+    { title: t("groupOnly"), rows: scenarioStandings(players, finishedMatches.filter(match => match.stage === "group"), (match, prediction) => scorePredictionPreview(match, prediction)) },
+    { title: t("doubleExactScores"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => {
+      const score = scorePredictionPreview(match, prediction);
+      return isExactScorePrediction(match, prediction) ? score * 2 : score;
+    }) },
+    { title: t("dropWorstThree"), rows: dropWorstStandings(players, finishedMatches, 3) },
+    { title: t("winnerOnlyRanking"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => prediction && matchWinner(match) === predictionWinner(prediction) ? 1 : 0) }
+  ];
+}
+
+function scenarioStandings(players, matches, scorer) {
+  const rows = players.map(player => {
+    let points = 0;
+    let exacts = 0;
+    let predicted = 0;
+    for (const match of matches) {
+      const prediction = predictionFor(player.id, match.id);
+      if (prediction) predicted += 1;
+      points += scorer(match, prediction);
+      if (isExactScorePrediction(match, prediction)) exacts += 1;
+    }
+    return { ...player, points: Math.round((points + Number.EPSILON) * 100) / 100, exacts, predicted };
+  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
+  return withCompetitionRanks(rows);
+}
+
+function dropWorstStandings(players, matches, count) {
+  const rows = players.map(player => {
+    const scores = matches.map(match => scorePredictionPreview(match, predictionFor(player.id, match.id)));
+    const kept = [...scores].sort((a, b) => a - b).slice(Math.min(count, scores.length));
+    const droppedTotal = kept.reduce((sum, value) => sum + value, 0);
+    const total = scores.reduce((sum, value) => sum + value, 0) - droppedTotal;
+    const exacts = matches.filter(match => isExactScorePrediction(match, predictionFor(player.id, match.id))).length;
+    const predicted = matches.filter(match => predictionFor(player.id, match.id)).length;
+    return { ...player, points: Math.round((total + Number.EPSILON) * 100) / 100, exacts, predicted };
+  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || a.name.localeCompare(b.name));
+  return withCompetitionRanks(rows);
+}
+
+function renderWhatIfTable(scenario) {
+  return `
+    <article class="what-if-card">
+      <h4>${escapeHtml(scenario.title)}</h4>
+      <table class="mini-ranking-table">
+        <tbody>
+          ${scenario.rows.slice(0, 8).map(row => `
+            <tr>
+              <td>${row.rank}</td>
+              <td>${escapeHtml(row.name)}</td>
+              <td>${row.points}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </article>
   `;
 }
 
