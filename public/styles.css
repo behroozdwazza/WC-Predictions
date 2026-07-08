@@ -950,6 +950,12 @@ body.rtl .frequent-score-list {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
+.rest-team-picker {
+  display: grid;
+  max-width: 360px;
+  margin: 0 0 12px;
+}
+
 .what-if-card {
   padding: 12px;
 }
