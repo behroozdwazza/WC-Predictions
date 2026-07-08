@@ -929,6 +929,13 @@ body.rtl .frequent-score-list {
   font-size: 14px;
 }
 
+.award-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .award-card strong {
   color: var(--mascot-blue);
   line-height: 1.25;

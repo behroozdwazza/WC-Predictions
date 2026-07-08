@@ -156,11 +156,17 @@ const translations = {
     currentLeaders: "Current leaders",
     noFinishedMatchesYet: "No finished matches yet.",
     exactMaster: "Exact Master",
+    exactMasterDesc: "Most perfectly predicted final scorelines.",
     drawProphet: "Draw Prophet",
+    drawProphetDesc: "Most correctly predicted draws.",
     penaltyWhisperer: "Penalty Whisperer",
+    penaltyWhispererDesc: "Best record at calling penalty shootout winners.",
     chaosMerchant: "Chaos Merchant",
+    chaosMerchantDesc: "Highest average number of goals predicted per match.",
     completionChampion: "Completion Champion",
+    completionChampionDesc: "Most predictions submitted for finished matches.",
     comebackClimber: "Comeback Climber",
+    comebackClimberDesc: "Biggest rise in the ranking table since the start.",
     perfect: "perfect",
     correctDraws: "correct draws",
     correctPenaltyPicks: "correct penalty picks",
@@ -410,6 +416,39 @@ const translations = {
     stage_final: "فینال"
   }
 };
+
+Object.assign(translations.fa, {
+  restDayFun: "گزارش روز استراحت",
+  restDayNotice: "گزارش‌های مخصوص مدیر برای روزهای بدون بازی و متن ایمیل. با پایان بازی‌های بیشتر، این گزارش‌ها خودکار به‌روز می‌شوند.",
+  tournamentAwards: "جایزه‌های شخصیتی تورنمنت",
+  whatIfRankings: "رده‌بندی‌های فرضی",
+  currentLeaders: "صدرنشینان فعلی",
+  noFinishedMatchesYet: "هنوز بازی تمام‌شده‌ای وجود ندارد.",
+  exactMaster: "استاد نتیجه دقیق",
+  exactMasterDesc: "بیشترین تعداد پیش‌بینی با نتیجه کاملاً دقیق.",
+  drawProphet: "پیامبر مساوی",
+  drawProphetDesc: "بیشترین تعداد مساوی‌های درست پیش‌بینی‌شده.",
+  penaltyWhisperer: "نجواگر پنالتی",
+  penaltyWhispererDesc: "بهترین عملکرد در پیش‌بینی برنده ضربات پنالتی.",
+  chaosMerchant: "معمار آشوب",
+  chaosMerchantDesc: "کسی که بیشتر از بقیه بازی‌های پرگل و پرحادثه پیش‌بینی کرده است.",
+  completionChampion: "قهرمان پیگیری",
+  completionChampionDesc: "بیشترین تعداد پیش‌بینی ثبت‌شده در بازی‌های تمام‌شده.",
+  comebackClimber: "صعودکننده بازگشتی",
+  comebackClimberDesc: "بزرگ‌ترین صعود در جدول رده‌بندی از شروع مسابقات تا امروز.",
+  perfect: "نتیجه دقیق",
+  correctDraws: "مساوی درست",
+  correctPenaltyPicks: "پنالتی درست",
+  avgPredictedGoals: "میانگین گل پیش‌بینی‌شده",
+  submittedPredictions: "پیش‌بینی ثبت‌شده",
+  rankPlaces: "پله صعود",
+  currentRanking: "رده‌بندی فعلی",
+  knockoutOnly: "فقط بازی‌های حذفی",
+  groupOnly: "فقط مرحله گروهی",
+  doubleExactScores: "نتایج دقیق دو برابر حساب شوند",
+  dropWorstThree: "حذف سه نتیجه بد هر بازیکن",
+  winnerOnlyRanking: "رده‌بندی فقط بر اساس برنده درست"
+});
 
 const timezones = [
   "UTC",
@@ -1813,16 +1852,16 @@ function rankChangeForPlayer(playerId) {
 
 function buildTournamentAwards(stats, matches) {
   return [
-    awardFromStats(t("exactMaster"), stats, item => item.exact, t("perfect")),
-    awardFromStats(t("drawProphet"), stats, item => item.correctDraws, t("correctDraws")),
-    awardFromStats(t("penaltyWhisperer"), stats, item => item.penaltyCorrect, t("correctPenaltyPicks"), matches.some(match => match.penaltyWinner)),
-    awardFromStats(t("chaosMerchant"), stats, item => item.avgPredictedGoals, t("avgPredictedGoals"), true, 1),
-    awardFromStats(t("completionChampion"), stats, item => item.submitted, t("submittedPredictions")),
-    awardFromStats(t("comebackClimber"), stats, item => item.rankChange, t("rankPlaces"))
+    awardFromStats(t("exactMaster"), t("exactMasterDesc"), stats, item => item.exact, t("perfect")),
+    awardFromStats(t("drawProphet"), t("drawProphetDesc"), stats, item => item.correctDraws, t("correctDraws")),
+    awardFromStats(t("penaltyWhisperer"), t("penaltyWhispererDesc"), stats, item => item.penaltyCorrect, t("correctPenaltyPicks"), matches.some(match => match.penaltyWinner)),
+    awardFromStats(t("chaosMerchant"), t("chaosMerchantDesc"), stats, item => item.avgPredictedGoals, t("avgPredictedGoals"), true, 1),
+    awardFromStats(t("completionChampion"), t("completionChampionDesc"), stats, item => item.submitted, t("submittedPredictions")),
+    awardFromStats(t("comebackClimber"), t("comebackClimberDesc"), stats, item => item.rankChange, t("rankPlaces"))
   ].filter(Boolean);
 }
 
-function awardFromStats(title, stats, valueFn, unit, enabled = true, decimals = 0) {
+function awardFromStats(title, description, stats, valueFn, unit, enabled = true, decimals = 0) {
   if (!enabled) return null;
   const ranked = stats
     .map(item => ({ ...item, value: valueFn(item) }))
@@ -1832,6 +1871,7 @@ function awardFromStats(title, stats, valueFn, unit, enabled = true, decimals = 
   const winners = ranked.filter(item => item.value === topValue);
   return {
     title,
+    description,
     names: winners.map(item => item.player.name),
     value: decimals ? topValue.toFixed(decimals) : topValue,
     unit
@@ -1842,6 +1882,7 @@ function renderAwardCard(award) {
   return `
     <article class="award-card">
       <h4>${escapeHtml(award.title)}</h4>
+      <p>${escapeHtml(award.description)}</p>
       <strong>${award.names.map(escapeHtml).join(", ")}</strong>
       <span>${escapeHtml(String(award.value))} ${escapeHtml(award.unit)}</span>
     </article>
@@ -1897,7 +1938,7 @@ function renderWhatIfTable(scenario) {
       <h4>${escapeHtml(scenario.title)}</h4>
       <table class="mini-ranking-table">
         <tbody>
-          ${scenario.rows.slice(0, 8).map(row => `
+          ${scenario.rows.slice(0, 10).map(row => `
             <tr>
               <td>${row.rank}</td>
               <td>${escapeHtml(row.name)}</td>
