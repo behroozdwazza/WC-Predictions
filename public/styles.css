@@ -868,6 +868,114 @@ body.rtl .frequent-score-list {
   margin-bottom: 12px;
 }
 
+.rest-day-panel h3 {
+  margin: 18px 0 10px;
+  font-size: 17px;
+}
+
+.rest-summary,
+.award-grid,
+.what-if-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.rest-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 10px;
+}
+
+.rest-summary div,
+.award-card,
+.what-if-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff, var(--soft));
+}
+
+.rest-summary div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  text-align: center;
+}
+
+.rest-summary strong {
+  color: var(--mascot-green);
+  font-size: 24px;
+}
+
+.rest-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.award-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.award-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-top: 4px solid var(--gold);
+}
+
+.award-card h4,
+.what-if-card h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.award-card strong {
+  color: var(--mascot-blue);
+  line-height: 1.25;
+}
+
+.award-card span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.what-if-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.what-if-card {
+  padding: 12px;
+}
+
+.mini-ranking-table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.mini-ranking-table td {
+  padding: 7px 4px;
+  border-top: 1px solid var(--line);
+}
+
+.mini-ranking-table td:first-child {
+  width: 32px;
+  color: var(--mascot-blue);
+  font-weight: 800;
+}
+
+.mini-ranking-table td:last-child {
+  width: 54px;
+  text-align: right;
+  color: var(--mascot-green);
+  font-weight: 850;
+}
+
+body.rtl .mini-ranking-table td:last-child {
+  text-align: left;
+}
+
 .rank-chart-panel h3 {
   margin: 0 0 12px;
   font-size: 16px;
