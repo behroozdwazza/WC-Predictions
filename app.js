@@ -1938,7 +1938,7 @@ function renderWhatIfTable(scenario) {
       <h4>${escapeHtml(scenario.title)}</h4>
       <table class="mini-ranking-table">
         <tbody>
-          ${scenario.rows.slice(0, 8).map(row => `
+          ${scenario.rows.slice(0, 10).map(row => `
             <tr>
               <td>${row.rank}</td>
               <td>${escapeHtml(row.name)}</td>
