@@ -174,11 +174,22 @@ const translations = {
     submittedPredictions: "submitted predictions",
     rankPlaces: "rank places",
     currentRanking: "Current ranking",
+    currentRankingDesc: "The official ranking using the current scoring rules.",
     knockoutOnly: "Knockout matches only",
+    knockoutOnlyDesc: "Only points from knockout-stage matches are counted.",
     groupOnly: "Group stage only",
+    groupOnlyDesc: "Only points from group-stage matches are counted.",
     doubleExactScores: "Exact scores count double",
+    doubleExactScoresDesc: "Exact-score points are doubled, while all other points stay the same.",
     dropWorstThree: "Drop each player's worst 3 matches",
+    dropWorstThreeDesc: "Total score and ranking after removing each player's three lowest match scores.",
     winnerOnlyRanking: "Winner-only ranking",
+    winnerOnlyRankingDesc: "One point per match for picking the correct winner or draw outcome.",
+    underdogOnly: "Underdog picks only",
+    underdogOnlyDesc: "Only points from picks chosen by 25% or less of participants for that match are counted.",
+    rank: "Rank",
+    player: "Player",
+    score: "Score",
     generateFunFacts: "Generate Fun Facts",
     generatePreMatchReport: "Generate pre-match report",
     preMatchNotice: "After a match starts, generate the prediction distribution report for that match.",
@@ -448,6 +459,20 @@ Object.assign(translations.fa, {
   doubleExactScores: "نتایج دقیق دو برابر حساب شوند",
   dropWorstThree: "حذف سه نتیجه بد هر بازیکن",
   winnerOnlyRanking: "رده‌بندی فقط بر اساس برنده درست"
+});
+
+Object.assign(translations.fa, {
+  currentRankingDesc: "رده‌بندی رسمی با قوانین امتیازدهی فعلی.",
+  knockoutOnlyDesc: "فقط امتیاز بازی‌های مرحله حذفی حساب می‌شود.",
+  groupOnlyDesc: "فقط امتیاز بازی‌های مرحله گروهی حساب می‌شود.",
+  doubleExactScoresDesc: "امتیاز نتیجه‌های دقیق دو برابر می‌شود و بقیه امتیازها تغییری نمی‌کند.",
+  dropWorstThreeDesc: "امتیاز کل و رتبه پس از حذف سه کمترین امتیاز هر بازیکن.",
+  winnerOnlyRankingDesc: "برای هر بازی، فقط پیش‌بینی درست برنده یا مساوی یک امتیاز دارد.",
+  underdogOnly: "فقط پیش‌بینی‌های خلاف جریان",
+  underdogOnlyDesc: "فقط امتیاز پیش‌بینی‌هایی حساب می‌شود که ۲۵٪ یا کمتر از شرکت‌کنندگان همان گزینه را انتخاب کرده‌اند.",
+  rank: "رتبه",
+  player: "بازیکن",
+  score: "امتیاز"
 });
 
 const timezones = [
@@ -1890,17 +1915,43 @@ function renderAwardCard(award) {
 }
 
 function buildWhatIfScenarios(players, finishedMatches) {
+  const underdogPicks = underdogPickMap(players, finishedMatches);
   return [
-    { title: t("currentRanking"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => scorePredictionPreview(match, prediction)) },
-    { title: t("knockoutOnly"), rows: scenarioStandings(players, finishedMatches.filter(match => match.stage !== "group"), (match, prediction) => scorePredictionPreview(match, prediction)) },
-    { title: t("groupOnly"), rows: scenarioStandings(players, finishedMatches.filter(match => match.stage === "group"), (match, prediction) => scorePredictionPreview(match, prediction)) },
-    { title: t("doubleExactScores"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => {
+    { title: t("currentRanking"), description: t("currentRankingDesc"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => scorePredictionPreview(match, prediction)) },
+    { title: t("knockoutOnly"), description: t("knockoutOnlyDesc"), rows: scenarioStandings(players, finishedMatches.filter(match => match.stage !== "group"), (match, prediction) => scorePredictionPreview(match, prediction)) },
+    { title: t("groupOnly"), description: t("groupOnlyDesc"), rows: scenarioStandings(players, finishedMatches.filter(match => match.stage === "group"), (match, prediction) => scorePredictionPreview(match, prediction)) },
+    { title: t("doubleExactScores"), description: t("doubleExactScoresDesc"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => {
       const score = scorePredictionPreview(match, prediction);
       return isExactScorePrediction(match, prediction) ? score * 2 : score;
     }) },
-    { title: t("dropWorstThree"), rows: dropWorstStandings(players, finishedMatches, 3) },
-    { title: t("winnerOnlyRanking"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => prediction && matchWinner(match) === predictionWinner(prediction) ? 1 : 0) }
+    { title: t("dropWorstThree"), description: t("dropWorstThreeDesc"), rows: dropWorstStandings(players, finishedMatches, 3) },
+    { title: t("winnerOnlyRanking"), description: t("winnerOnlyRankingDesc"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => prediction && matchWinner(match) === predictionWinner(prediction) ? 1 : 0) },
+    { title: t("underdogOnly"), description: t("underdogOnlyDesc"), rows: scenarioStandings(players, finishedMatches, (match, prediction) => {
+      if (!prediction) return 0;
+      const underdogs = underdogPicks.get(match.id);
+      return underdogs?.has(predictionWinner(prediction)) ? scorePredictionPreview(match, prediction) : 0;
+    }) }
   ];
+}
+
+function underdogPickMap(players, matches) {
+  const byMatch = new Map();
+  for (const match of matches) {
+    const counts = {};
+    let total = 0;
+    for (const player of players) {
+      const prediction = predictionFor(player.id, match.id);
+      if (!prediction) continue;
+      const key = predictionWinner(prediction);
+      counts[key] = (counts[key] || 0) + 1;
+      total += 1;
+    }
+    const underdogs = new Set(Object.entries(counts)
+      .filter(([, count]) => total > 0 && count / total <= 0.25)
+      .map(([key]) => key));
+    byMatch.set(match.id, underdogs);
+  }
+  return byMatch;
 }
 
 function scenarioStandings(players, matches, scorer) {
@@ -1936,7 +1987,11 @@ function renderWhatIfTable(scenario) {
   return `
     <article class="what-if-card">
       <h4>${escapeHtml(scenario.title)}</h4>
+      <p>${escapeHtml(scenario.description || "")}</p>
       <table class="mini-ranking-table">
+        <thead>
+          <tr><th>${t("rank")}</th><th>${t("player")}</th><th>${t("score")}</th></tr>
+        </thead>
         <tbody>
           ${scenario.rows.slice(0, 10).map(row => `
             <tr>

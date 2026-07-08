@@ -954,11 +954,30 @@ body.rtl .frequent-score-list {
   padding: 12px;
 }
 
+.what-if-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .mini-ranking-table {
   width: 100%;
   margin-top: 10px;
   border-collapse: collapse;
   font-size: 13px;
+}
+
+.mini-ranking-table th {
+  padding: 0 4px 6px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+body.rtl .mini-ranking-table th {
+  text-align: right;
 }
 
 .mini-ranking-table td {
