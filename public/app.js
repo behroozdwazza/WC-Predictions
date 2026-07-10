@@ -194,6 +194,10 @@ const translations = {
     teamSpecificRankingDesc: "Normal scoring points from matches involving the selected team only.",
     dropFavoriteTeam: "Drop favorite-team matches",
     dropFavoriteTeamDesc: "Ranking after removing each player's matches involving their own favorite team. Only players with a favorite team are included.",
+    exactPercentageRanking: "Exact prediction percentage",
+    exactPercentageRankingDesc: "Exact predictions divided by submitted predictions only; missed matches are excluded.",
+    predictionDeviationRanking: "Closest scoreline predictions",
+    predictionDeviationRankingDesc: "Higher score means predictions were closer to actual scorelines based on total goal error.",
     chooseTeamForReport: "Choose team",
     rank: "Rank",
     player: "Player",
@@ -488,6 +492,13 @@ Object.assign(translations.fa, {
   rank: "رتبه",
   player: "بازیکن",
   score: "امتیاز"
+});
+
+Object.assign(translations.fa, {
+  exactPercentageRanking: "درصد پیش‌بینی دقیق",
+  exactPercentageRankingDesc: "تعداد پیش‌بینی‌های دقیق تقسیم بر تعداد پیش‌بینی‌های ثبت‌شده؛ بازی‌های جاافتاده حساب نمی‌شوند.",
+  predictionDeviationRanking: "نزدیک‌ترین پیش‌بینی‌ها به نتیجه واقعی",
+  predictionDeviationRankingDesc: "امتیاز بالاتر یعنی پیش‌بینی‌ها از نظر اختلاف گل‌های هر تیم به نتیجه واقعی نزدیک‌تر بوده‌اند."
 });
 
 const timezones = [
@@ -1839,7 +1850,6 @@ function renderPreMatchAdmin() {
 
 function renderRestDayFunAdmin() {
   const report = buildRestDayReport();
-  const teams = restReportTeams(report.finishedMatches);
   return `
     <section class="panel rest-day-panel" style="margin-top:16px">
       <h2>${t("restDayFun")}</h2>
@@ -1855,11 +1865,6 @@ function renderRestDayFunAdmin() {
           ${report.awards.map(renderAwardCard).join("")}
         </div>
         <h3>${t("whatIfRankings")}</h3>
-        <label class="rest-team-picker">${t("chooseTeamForReport")}
-          <select id="rest-team-select">
-            ${teams.map(team => `<option value="${escapeHtml(team)}" ${team === state.restTeam ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
-          </select>
-        </label>
         <div class="what-if-grid">
           ${report.scenarios.map(renderWhatIfTable).join("")}
         </div>
@@ -1988,8 +1993,10 @@ function buildWhatIfScenarios(players, finishedMatches, selectedTeam) {
       return underdogs?.has(predictionWinner(prediction)) ? scorePredictionPreview(match, prediction) : 0;
     }) },
     { title: t("totalGoalsPredictedRanking"), description: t("totalGoalsPredictedRankingDesc"), rows: totalGoalsPredictedStandings(players, finishedMatches) },
-    { title: selectedTeam ? `${t("teamSpecificRanking")}: ${selectedTeam}` : t("teamSpecificRanking"), description: t("teamSpecificRankingDesc"), rows: scenarioStandings(players, teamMatches, (match, prediction) => scorePredictionPreview(match, prediction)) },
-    { title: t("dropFavoriteTeam"), description: t("dropFavoriteTeamDesc"), rows: dropFavoriteTeamStandings(players, finishedMatches) }
+    { title: selectedTeam ? `${t("teamSpecificRanking")}: ${selectedTeam}` : t("teamSpecificRanking"), description: t("teamSpecificRankingDesc"), teamPicker: true, rows: scenarioStandings(players, teamMatches, (match, prediction) => scorePredictionPreview(match, prediction)) },
+    { title: t("dropFavoriteTeam"), description: t("dropFavoriteTeamDesc"), rows: dropFavoriteTeamStandings(players, finishedMatches) },
+    { title: t("exactPercentageRanking"), description: t("exactPercentageRankingDesc"), rows: exactPercentageStandings(players, finishedMatches) },
+    { title: t("predictionDeviationRanking"), description: t("predictionDeviationRankingDesc"), rows: deviationStandings(players, finishedMatches) }
   ];
 }
 
@@ -2081,11 +2088,51 @@ function dropFavoriteTeamStandings(players, matches) {
   return withCompetitionRanks(rows);
 }
 
+function exactPercentageStandings(players, matches) {
+  const rows = players.map(player => {
+    const submittedMatches = matches.filter(match => predictionFor(player.id, match.id));
+    const predicted = submittedMatches.length;
+    const exacts = submittedMatches.filter(match => isExactScorePrediction(match, predictionFor(player.id, match.id))).length;
+    const points = predicted ? Math.round((exacts / predicted) * 1000) / 10 : 0;
+    return { ...player, points, exacts, predicted };
+  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || b.predicted - a.predicted || a.name.localeCompare(b.name));
+  return withCompetitionRanksBy(rows, row => [row.points, row.exacts, row.predicted]);
+}
+
+function deviationStandings(players, matches) {
+  const rows = players.map(player => {
+    let points = 0;
+    let exacts = 0;
+    let predicted = 0;
+    for (const match of matches) {
+      const prediction = predictionFor(player.id, match.id);
+      if (!prediction) continue;
+      const homeError = Math.abs(numericScore(prediction.homeScore) - numericScore(match.homeScore));
+      const awayError = Math.abs(numericScore(prediction.awayScore) - numericScore(match.awayScore));
+      if (!Number.isFinite(homeError) || !Number.isFinite(awayError)) continue;
+      const error = homeError + awayError;
+      predicted += 1;
+      points += Math.max(0, 10 - error);
+      if (error === 0) exacts += 1;
+    }
+    return { ...player, points: Math.round((points + Number.EPSILON) * 100) / 100, exacts, predicted };
+  }).sort((a, b) => b.points - a.points || b.exacts - a.exacts || b.predicted - a.predicted || a.name.localeCompare(b.name));
+  return withCompetitionRanksBy(rows, row => [row.points, row.exacts, row.predicted]);
+}
+
 function renderWhatIfTable(scenario) {
+  const teams = scenario.teamPicker ? restReportTeams(state.data.matches.filter(match => String(match.status).toLowerCase() === "finished")) : [];
   return `
     <article class="what-if-card">
       <h4>${escapeHtml(scenario.title)}</h4>
       <p>${escapeHtml(scenario.description || "")}</p>
+      ${scenario.teamPicker ? `
+        <label class="rest-team-picker">${t("chooseTeamForReport")}
+          <select id="rest-team-select">
+            ${teams.map(team => `<option value="${escapeHtml(team)}" ${team === state.restTeam ? "selected" : ""}>${escapeHtml(team)}</option>`).join("")}
+          </select>
+        </label>
+      ` : ""}
       <table class="mini-ranking-table">
         <thead>
           <tr><th>${t("rank")}</th><th>${t("player")}</th><th>${t("score")}</th></tr>
